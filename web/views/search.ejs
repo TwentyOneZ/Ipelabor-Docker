@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Ipêlabor - Busca de Atendimentos</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #eee; cursor: pointer; }
+    /* oculta a coluna msgId */
+    #resultsTable td:first-child,
+    #resultsTable th:first-child {
+      display: none;
+    }
+  </style>
+  <script>
+    // formata células que contenham '*' removendo o asterisco e deixando em negrito
+    function formatResults() {
+      document.querySelectorAll('#resultsTable tbody td').forEach(td => {
+        if (td.textContent.includes('*')) {
+          td.innerHTML = td.textContent.replace(/\*/g, '');
+          td.style.fontWeight = 'bold';
+        }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', formatResults);
+  </script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="header">
+  </div>
+  <div class="filters">
+    <form method="POST" action="/search">
+      <input name="name"        placeholder="Nome"        value="<%= filters.name %>">
+      <input name="empresa"     placeholder="Empresa"     value="<%= filters.empresa %>">
+      <input name="sala"        placeholder="Sala"        value="<%= filters.sala %>">
+      <input name="branch"      placeholder="Local"       value="<%= filters.branch %>">
+      <input name="caller"      placeholder="Atendente"       value="<%= filters.branch %>">
+      <label>Data Início:
+        <input name="startDate" type="date" value="<%= filters.startDate %>">
+      </label>
+      <label>Data Fim:
+        <input name="endDate"   type="date" value="<%= filters.endDate %>">
+      </label>
+
+      <!-- campos hidden para sort -->
+      <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy %>">
+      <input type="hidden" name="sortDir" id="sortDir" value="<%= sorting.sortDir %>">
+      <button type="submit">Buscar</button>
+    </form>
+  </div>
+
+  <% if (results.length > 0) { %>
+    <div class="results">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <% 
+              const cols   = ['msgId','paciente','empresa','sala','branch','data','hora_inicio','hora_fim','duracao', 'caller'];
+              const labels = { branch: 'Local' , caller: 'Atendente' };
+            %>
+            <% cols.forEach(col => { %>
+              <th 
+                data-column="<%= col %>" 
+                data-dir="<%= sorting.sortBy === col ? sorting.sortDir : 'DESC' %>"
+              >
+                <%= labels[col] || (col.charAt(0).toUpperCase() + col.slice(1).replace('_',' ')) %>
+              </th>
+            <% }) %>
+          </tr>
+        </thead>
+        <tbody>
+          <% results.forEach(r => { %>
+            <tr>
+              <td><%= r.msgId %></td>
+              <td><%= r.paciente %></td>
+              <td><%= r.empresa %></td>
+              <td><%= r.sala %></td>
+              <td><%= r.branch %></td>
+              <td>
+                <%= r.data instanceof Date 
+                      ? r.data.toLocaleDateString('pt-BR') 
+                      : r.data %>
+              </td>
+              <td><%= r.hora_inicio %></td>
+              <td><%= r.hora_fim %></td>
+              <td><%= r.duracao %></td>
+              <td><%= r.caller %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <script>
+        const form = document.querySelector('form');
+        document.querySelectorAll('#resultsTable th').forEach(th => {
+          th.addEventListener('click', () => {
+            const col = th.dataset.column;
+            const dir = th.dataset.dir === 'ASC' ? 'DESC' : 'ASC';
+            document.getElementById('sortBy').value  = col;
+            document.getElementById('sortDir').value = dir;
+            th.dataset.dir = dir;
+            form.submit();
+          });
+        });
+      </script>
+    </div>
+  <% } %>
+</body>
+</html>

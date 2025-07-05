@@ -1,0 +1,301 @@
+/* public/css/style.css */
+
+/* Importa fonte semelhante à usada no layout */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Montserrat', sans-serif;
+}
+
+body {
+  /* mantém seu background já configurado */
+  background: url('/images/background.png') no-repeat center center fixed;
+  background-size: cover;
+
+  /* tipografia */
+  font-family: 'Montserrat', sans-serif;
+  color: #333;
+  line-height: 1.6;
+
+  /* agrega um pouco de preenchimento geral */
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  position: relative;
+  background-image: url('/images/logoT.png');
+  background-repeat: no-repeat;         /* não repete */
+  background-position: left center;     /* uma única vez, à esquerda */
+  background-size: 400px auto;          /* ajustar o tamanho como preferir */
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #009688;
+  z-index: 1;
+  margin-top: -40px;    /* puxa o card sobre o header */
+}
+.header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.0);
+  z-index: 1; /* padrão é 0, mas coloca 1 pra ficar abaixo do .filters */
+}
+.header .title {
+  position: relative;
+  z-index: 1;
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.flash-error {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #e74c3c;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    font-weight: bold;
+    z-index: 999;
+  }
+  
+.filters {
+  position: relative;  /* cria um novo contexto de empilhamento */
+  z-index: 2;          /* fica acima do header::after */
+  background: #fff;
+  padding: 20px;
+  margin-top: -60px;    /* puxa o card sobre o header */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.filters input,
+.filters button {
+  flex: 1 1 150px;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.filters button {
+  background: #009688;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.filters label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* reduz a largura dos filtros "Sala" e "Local" */
+.filters input[name="sala"],
+.filters input[name="branch"] {
+  /* flex: 1 1 <basis> — controla o tamanho inicial em pixels */
+  flex: 1 1 100px;      /* troque 100px pelo valor que quiser */
+  max-width: 120px;     /* ou limite máximo, se preferir */
+}
+
+.results {
+  background: rgba(255,255,255,0.2);
+  padding: 20px;
+  margin-top: 0px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  overflow-x: auto;
+}
+#resultsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+#resultsTable th {
+  background: #f7f7f7;
+  color: #009688;
+  padding: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+#resultsTable td {
+  padding: 12px;
+}
+#resultsTable tbody tr {
+  background: rgba(255,255,255,0.8);
+}
+#resultsTable tbody tr:nth-child(even) {
+  background: rgba(255,255,255,0.9);
+}
+#resultsTable th,
+#resultsTable td {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+/* container centralizado com grid de duas colunas */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-gap: 40px;
+  align-items: start;
+}
+
+/* título principal */
+h2 {
+  grid-column: 1 / -1;
+  font-size: 2.5rem;
+  color: #009688;
+  text-align: center;
+  margin-bottom: 24px;
+  font-weight: 700;
+}
+
+/* parágrafos com espaçamento */
+p {
+  margin-bottom: 20px;
+}
+
+/* imagem com borda colorida */
+img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 3px solid #009688;
+  border-radius: 4px;
+}
+
+/* formulário de busca */
+form {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+form input,
+form button {
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+form input {
+  flex: 1 1 150px;
+}
+
+form button {
+  background: #009688;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+form button:hover {
+  opacity: 0.9;
+}
+
+/* aumenta a largura da coluna Sala */
+#resultsTable th:nth-child(4),
+#resultsTable td:nth-child(4) {
+  width: 150px;  /* ajuste para o valor que você quiser */
+}
+
+/* === Responsividade para telas pequenas (até 768px de largura) === */
+@media screen and (max-width: 1024px) {
+  .login-container {
+    /* triplica tudo em 3× */
+    transform: scale(2);
+    /* pivô de escala no topo/centro */
+    transform-origin: top center;
+    /* ajusta margem pra caber na tela depois da escala */
+    margin-top: 20px;
+  }
+
+  /* dobra a fonte base */
+  html, body {
+    font-size: 150%;  /* 2× */
+  }
+
+  /* header fica do mesmo tamanho relativo (height em rems escala junto) */
+  .header {
+    /* se você quiser ajustar, brinque com estes valores em rem */
+    height: 15rem;               /* ~140px ×2 = 280px */
+    background-size: 20rem auto;/* ~200px×2 = 400px */
+    margin-top: -4rem;          /* ajuste fino para subir sobre o header */
+  }
+  .header .title {
+    font-size: 1.8rem;          /* ~1.8rem×2 */
+  }
+
+  /* card de filtros: empilha verticalmente e dobra paddings */
+  .filters {
+    display: block;             /* layout em coluna única */
+    margin-top: -4rem;          /* ajuste fino para subir sobre o header */
+    padding: 1rem;              /* 2× padding original (2rem→4rem) */
+    gap: 2rem;                  /* 2× gap */
+  }
+  .filters input,
+  .filters button {
+    width: 95%;                /* uma linha cada */
+    margin-bottom: 0.1rem;      /* espaço entre eles */
+    flex: none;                 /* cancela o flex original */
+    font-size: 1em;             /* herda o 200% da raiz */
+    padding: 1.0rem;            /* escalar padding dos campos */
+  }
+  .filters input[name="sala"],
+  .filters input[name="branch"] {
+    flex: 1 1 80px;
+    max-width: 50%;
+  }
+  /* resultados: dobra padding interno */
+  .results {
+    width: 95%;                /* uma linha cada */
+    padding: 0.1rem;              /* 2× padding original */
+    overflow-x: visible;
+  }
+  #resultsTable {
+    width: 95%;
+    border-collapse: collapse;
+  }
+  #resultsTable th {
+    background: #f7f7f7;
+    color: #009688;
+    padding: 0.2rem;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    font-size: 1rem;
+  }
+  #resultsTable td {
+    padding: 0.2rem;
+    font-size: 1rem;
+  }
+  #resultsTable th,
+  #resultsTable td {
+    font-size: 1rem;
+    padding: 0.2rem;              /* 2× 1rem (10px→20px) */
+  }
+
+}
