@@ -83,6 +83,10 @@ async function handleIncomingMessages(upsert, sock) {
       }
 
       const textoOriginal = original?.text || '';
+      if (!textoOriginal.includes('-')) {
+        logger.debug(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
+        continue;
+      }
       logger.debug('🛠️ debug: textoOriginal:', textoOriginal);
 
       if (emoji === '❤️' && original) {
