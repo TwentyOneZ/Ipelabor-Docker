@@ -36,6 +36,11 @@ async function handleIncomingMessages(upsert, sock) {
                  msg.message?.extendedTextMessage?.text ||
                  msg.message?.imageMessage?.caption || '';
 
+    if (text && !text.includes('-')) {
+      logger.debug(`❌ Ignorando texto sem hífen: "${text}"`);
+      continue;
+    }
+    
     // 1) Texto recebido
     if (text) {
       messageCache.set(msgId, { chatId, text, fromMe: msg.key.fromMe });
