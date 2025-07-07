@@ -4,13 +4,14 @@ services:
   mysql:
     image: mysql:8
     container_name: mysql_whatsapp
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: q1w2e3
       MYSQL_DATABASE: ipelabor
       MYSQL_TCP_PORT: 3306
+      TZ: America/Sao_Paulo       # <-- define o fuso
     ports:
-      - "7706:3306"
+      - "7306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -18,13 +19,15 @@ services:
   mqtt_broker:
     image: eclipse-mosquitto
     container_name: mqtt_whatsapp
-    restart: always
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo       # <-- define o fuso
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
     ports:
-      - "1885:1883"
+      - "7883:1883"
 
   nodeapp:
     build: .
@@ -32,22 +35,27 @@ services:
     depends_on:
       - mysql
       - mqtt_broker
+    environment:
+      TZ: America/Sao_Paulo       # <-- define o fuso
     volumes:
       - .:/app
     working_dir: /app
     command: ["node", "index.js"]
-    ports:
-      - "3000:3000"
-    restart: always
+    restart: unless-stopped
 
   web:
     build: ./web
+    depends_on:
+      - mysql
     ports:
-      - "3000:3000"
+      - "7000:3000"
+    environment:
+      TZ: America/Sao_Paulo       # <-- define o fuso
     volumes:
       - .:/app
     working_dir: /app/web
     command: node server.js
+    restart: unless-stopped
 
 volumes:
   mysql_data:

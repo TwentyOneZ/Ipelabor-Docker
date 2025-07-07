@@ -15,7 +15,7 @@ const finalizationEmojis = (settings.finalizationEmojis || '')
 
   // Main handler function
 async function handleIncomingMessages(upsert, sock) {
-  // logger.debug('🛠️ debug: handleIncomingMessages called, sock defined?', !!sock);
+  logger.debug('🛠️ debug: handleIncomingMessages called, sock defined?', !!sock);
   if (!sock) {
     logger.error('❌ debug: sock é undefined!');
     return;
@@ -50,12 +50,12 @@ async function handleIncomingMessages(upsert, sock) {
             if (err) {
               logger.error('❌ Falha ao publicar texto no MQTT:', err.message);
             } else {
-              logger.debug(`📤 Mensagem publicada em ${topics.topicMessages}`, text);
+              logger.info(`📤 Mensagem publicada em ${topics.topicMessages}`, text);
             }
           }
         );
       } else {
-        logger.warn('⚠️ tópicoMessages indefinido para a branch:', branch);
+        logger.debug('⚠️ tópicoMessages indefinido para a branch:', branch);
       }
     }
 
@@ -94,15 +94,23 @@ async function handleIncomingMessages(upsert, sock) {
         const sala = config.rooms?.[reactedChatId];
         const reactedBy = msg.pushName || 'Usuário desconhecido';
         // Marca no Whatsapp
-        // await marcarUnicoNaSala(textoOriginal, original.chatId, sock); 
+        if (config.settings.markEmojis) {
+          await marcarUnicoNaSala(textoOriginal, original.chatId, sock); 
+        }
         // Atualiza o banco de dados
-        await finalizePreviousUnfinishedAttendance(pool, reactedChatId, reactionMsgId, new Date().toTimeString().slice(0, 8), new Date());
-        await insertOrUpdateAttendance(pool, reactionMsgId, nome, empresa, sala, branchReact, dataLocal, new Date().toTimeString().slice(0, 8), reactedBy);
+        if (config.settings.registerDatabase) {
+          await finalizePreviousUnfinishedAttendance(pool, reactedChatId, reactionMsgId, new Date().toTimeString().slice(0, 8), new Date());
+          await insertOrUpdateAttendance(pool, reactionMsgId, nome, empresa, sala, branchReact, dataLocal, new Date().toTimeString().slice(0, 8), reactedBy);
+        }
       } else if (finalizationEmojis.includes(emoji) && original) {
         // Remove marca no Whatsapp
-        // await removerMarcacoes(textoOriginal, original.chatId, sock);
+        if (config.settings.markEmojis) {
+          await removerMarcacoes(textoOriginal, original.chatId, sock);
+        }
         // Atualiza o banco de dados
-        await finalizeAttendance(pool, reactionMsgId, new Date().toTimeString().slice(0, 8), new Date());
+        if (config.settings.registerDatabase) {
+          await finalizeAttendance(pool, reactionMsgId, new Date().toTimeString().slice(0, 8), new Date());
+        }
       }
 
       logMessage(chatId, textoOriginal, true, emoji);
@@ -141,7 +149,6 @@ async function handleIncomingMessages(upsert, sock) {
         const msgId     = msg.key.id;
 
         // Verifica se é um VIP Caller
-        logger.info(`📤 VIP ${msg.key.reactedBy},  ${msg.key.reactedChatId},  ${msg.key.reactionMsgId},  ${msg.pushName}`);
         const vipCaller  = config.vipCaller.caller;
         const vipBranch = config.vipCaller.branch;
         const reactedBy = msg.pushName || 'Usuário desconhecido';
@@ -167,7 +174,7 @@ async function handleIncomingMessages(upsert, sock) {
               if (err) {
                 logger.error('❌ Falha ao publicar reação no MQTT:', err.message);
               } else {
-                logger.info(`📤 Reação publicada em ${topics.topicCalls}`);
+                logger.info(`📤 Chamado VIP publicado em ${topics.topicCalls}`);
               }
             }
           );
@@ -189,7 +196,7 @@ async function handleIncomingMessages(upsert, sock) {
               if (err) {
                 logger.error('❌ Falha ao publicar reação no MQTT:', err.message);
               } else {
-                logger.info(`📤 Reação publicada em ${topics.topicCalls}`);
+                logger.info(`📤 Chamado publicado em ${topics.topicCalls}`);
               }
             }
           );
@@ -210,26 +217,39 @@ async function marcarUnicoNaSala(texto, origemChatId, sock) {
   const salaEmoji = emojiMap[origemChatId] || '✅';
 
   for (const chatId of chats) {
-    const [all] = await pool.query(
-      `SELECT msgId, fromMe FROM messages WHERE chatId = ?`,
-      [chatId]
-    );
+    const [all] = await pool.query(`
+      SELECT
+        msgId,
+        fromMe
+      FROM messages
+      WHERE chatId = ?
+        AND \`timestamp\` >= CURDATE()
+        AND \`timestamp\` <  CURDATE() + INTERVAL 1 DAY
+      ORDER BY \`timestamp\` DESC
+      LIMIT 10
+    `, [chatId]);    
     for (const { msgId, fromMe } of all) {
       try {
         await sock.sendMessage(chatId, {
           react: { text: '', key: { id: msgId, remoteJid: chatId, fromMe } }
         });
       } catch (e) {
-        logger.error(`❌ falha ao limpar reação em ${chatId}:`, e.message);
+        logger.error(`❌ falha ao limpar reação em ${chatId}: ${msgId}`, e.message);
       }
     }
 
-    const [rows] = await pool.query(
-      `SELECT msgId, fromMe
-         FROM messages
-        WHERE chatId = ? AND text = ?`,
-      [chatId, texto]
-    );
+    const [rows] = await pool.query(`
+      SELECT
+        msgId,
+        fromMe
+      FROM messages
+      WHERE chatId = ?
+        AND text = ?
+        AND \`timestamp\` >= CURDATE()
+        AND \`timestamp\` <  CURDATE() + INTERVAL 1 DAY
+      ORDER BY \`timestamp\` DESC
+      LIMIT 10
+    `, [chatId, texto]);    
     for (const { msgId, fromMe } of rows) {
       try {
         await sock.sendMessage(chatId, {
@@ -252,10 +272,19 @@ async function removerMarcacoes(texto, origemChatId, sock) {
   await ensureTables(pool);
 
   for (const chatId of chats) {
-    const [rows] = await pool.query(
-      `SELECT msgId, fromMe FROM messages WHERE chatId = ? AND text = ?`,
-      [chatId, texto]
-    );
+    const [rows] = await pool.query(`
+      SELECT
+        msgId,
+        fromMe
+      FROM messages
+      WHERE chatId = ?
+        AND text = ?
+        AND \`timestamp\` >= CURDATE()
+        AND \`timestamp\` <  CURDATE() + INTERVAL 1 DAY
+      ORDER BY \`timestamp\` DESC
+      LIMIT 10
+    `, [chatId, texto]);
+    
     for (const { msgId, fromMe } of rows) {
       try {
         await sock.sendMessage(chatId, {
@@ -375,7 +404,8 @@ async function ensureTables(pool) {
       text TEXT,
       fromMe BOOLEAN,
       participant VARCHAR(255),
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      \`timestamp\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_messages_chat_ts (chatId, \`timestamp\`)
     )
   `);
 
@@ -386,7 +416,7 @@ async function ensureTables(pool) {
       empresa VARCHAR(255),
       sala VARCHAR(255),
       branch VARCHAR(255),
-      data DATE,
+      \`data\` DATE,
       hora_inicio TIME,
       hora_fim TIME,
       duracao VARCHAR(50),
@@ -394,5 +424,6 @@ async function ensureTables(pool) {
     )
   `);
 }
+
 
 module.exports = { handleIncomingMessages };
