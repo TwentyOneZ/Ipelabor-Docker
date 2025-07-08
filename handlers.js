@@ -211,18 +211,18 @@ async function markUniqueInRoom(text, origemChatId, sock) {
     `, [ chatId ]);
 
     for (const { msgId, fromMe, participant } of oldMsgs) {
-      for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      for (let tentativa = 1; tentativa <= 10; tentativa++) {
         try {
           await sock.sendMessage(chatId, {
             react: { text:'', key:{ id:msgId, remoteJid:chatId, fromMe , participant} }
           });
-          await new Promise(res => setTimeout(res, 500));
+          await new Promise(res => setTimeout(res, 50));
           break;  // emoji aplicado com sucesso, sai do loop de retry
         } catch (e) {
           logger.error(`❌ falha ao limpar reação em ${config.rooms?.[chatId] || ''} (tentativa ${tentativa}):`, err.message);
           // se não for a última tentativa, aguarda um pouco antes de tentar de novo
           if (tentativa < 3) {
-            await new Promise(res => setTimeout(res, tentativa * 500));
+            await new Promise(res => setTimeout(res, tentativa * 50));
           }
         }
       }
@@ -240,7 +240,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
     `, [ chatId, text ]);
 
     for (const { msgId, fromMe, participant } of matching) {
-      for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      for (let tentativa = 1; tentativa <= 10; tentativa++) {
         try {
           await sock.sendMessage(chatId, {
             react: {
@@ -249,13 +249,13 @@ async function markUniqueInRoom(text, origemChatId, sock) {
             }
           });
           logger.info(`✔️ Marcado ${salaEmoji} em ${config.rooms?.[chatId] || ''} para “${text}”`);
-          await new Promise(res => setTimeout(res, 500));
+          await new Promise(res => setTimeout(res, 50));
           break;  // emoji aplicado com sucesso, sai do loop de retry
         } catch (err) {
           logger.error(`❌ falha ao marcar em ${config.rooms?.[chatId] || ''} (tentativa ${tentativa}):`, err.message);
           // se não for a última tentativa, aguarda um pouco antes de tentar de novo
           if (tentativa < 3) {
-            await new Promise(res => setTimeout(res, tentativa * 500));
+            await new Promise(res => setTimeout(res, tentativa * 50));
           }
         }
       }
