@@ -11,6 +11,7 @@ const messageCache = new Map();
 const settings = config.settings || {};
 const finalizationEmojis = (settings.finalizationEmojis || '')
   .split(',').map(e => e.trim());
+const currentAttendance = new Map();
 
 /**
  * Garante que as tabelas existam antes de qualquer operação.
@@ -95,36 +96,6 @@ async function registerAttendanceOnReceive(pool, msgId, chatId, branch, text) {
     [ msgId, paciente, empresa, sala, branch, date, time ]
   );
   logger.debug('🛠️ Inserindo atendimento no banco de dados.');
-}
-
-/**
- * Finaliza qualquer atendimento anterior sem hora_fim.
- */
-async function finalizePreviousUnfinishedAttendance(pool, sala, reactionMsgId, horaAgora, now) {
-  const [prev] = await pool.query(
-    `SELECT msgId, data, hora_inicio
-       FROM atendimentos
-      WHERE sala = ? AND hora_fim IS NULL AND msgId != ?
-      ORDER BY hora_inicio DESC LIMIT 1`,
-    [ sala, reactionMsgId ]
-  );
-  if (!prev.length) return;
-
-  const { msgId: prevId, data, hora_inicio: horaInicio } = prev[0];
-  const YYYY = data.getFullYear();
-  const MM   = String(data.getMonth() + 1).padStart(2, '0');
-  const DD   = String(data.getDate()).padStart(2, '0');
-  const dtPrev = new Date(`${YYYY}-${MM}-${DD}T${horaInicio}`);
-  const diffMs = now - dtPrev;
-  const min = Math.floor(diffMs / 60000);
-  const sec = Math.floor((diffMs % 60000) / 1000);
-  const duracao = `${min}m ${sec}s`;
-
-  await pool.query(
-    `UPDATE atendimentos SET hora_fim = ?, duracao = ? WHERE msgId = ?`,
-    [ horaAgora, duracao, prevId ]
-  );
-  logger.debug('🛠️ Finalizando atendimento anterior no banco de dados.');
 }
 
 /**
@@ -264,13 +235,15 @@ async function markUniqueInRoom(text, origemChatId, sock) {
 }
 
 /**
- * Remove marcações de uma mensagem em todas as salas (até 10 mais recentes).
+ * Remove a reação (emoji da sala de origem) de TODAS as salas,
+ * inclusive a própria.
  */
 async function removeMarks(text, origemChatId, sock) {
   const branch = getBranchByChatId(origemChatId);
   if (!branch) return;
   const pool = getPool();
-  const chats = config.branches[branch].split(',').map(e=>e.trim());
+  const chats = config.branches[branch].split(',').map(e => e.trim());
+  const salaEmoji = (config.emojis || {})[origemChatId] || '✅';
 
   for (const chatId of chats) {
     const [rows] = await pool.query(`
@@ -286,15 +259,19 @@ async function removeMarks(text, origemChatId, sock) {
     for (const { msgId, fromMe, participant } of rows) {
       try {
         await sock.sendMessage(chatId, {
-          react:{ text:'', key:{ id:msgId, remoteJid:chatId, fromMe, participant } }
+          react: {
+            text: '',
+            key: { id: msgId, remoteJid: chatId, fromMe, participant }
+          }
         });
-        logger.info(`🗑️ Reação removida em ${config.rooms?.[chatId] || ''} para "${text}"`);
-      } catch(e) {
+        logger.info(`🗑️ Reação ${salaEmoji} removida em ${config.rooms?.[chatId] || ''} para "${text}"`);
+      } catch (e) {
         logger.error(`❌ falha ao remover em ${config.rooms?.[chatId] || ''}:`, e.message);
       }
     }
   }
 }
+
 
 /**
  * Publica a reação "raw" no MQTT.
@@ -440,37 +417,55 @@ async function handleIncomingMessages(upsert, sock) {
         continue;
       }
 
-      // ❤️ = inicia atendimento
+      // ❤️ = inicia atendimento na sala X
       if (emoji === '❤️') {
-        // marca no WhatsApp
-        if (settings.markEmojis) {
-          await markUniqueInRoom(textoOriginal, original.chatId, sock);
-        }
+        const sala = reactedChatId;
 
-        // atualiza DB
-        if (settings.registerDatabase) {
+        // ➊ Se já houver atendimento em curso nessa sala, finalize-o
+        if (currentAttendance.has(sala)) {
+          const prevMsgId = currentAttendance.get(sala);
           const now = new Date();
           const horaAgora = now.toTimeString().slice(0,8);
+          await finalizeAttendance(pool, prevMsgId, horaAgora, now);
+          logger.info(`🛑 Atendimento anterior em ${config.rooms?.[sala]} finalizado automaticamente.`);
+        }
 
-          await finalizePreviousUnfinishedAttendance(
-            pool, reactedChatId, reactionMsgId, horaAgora, now
-          );
+        // ➋ Registra o novo atendimento no Map
+        currentAttendance.set(sala, reactionMsgId);
 
+        // ➌ Marca com emojiX em todas as salas
+        if (settings.markEmojis) {
+          await markUniqueInRoom(textoOriginal, sala, sock);
+        }
+
+        // ➍ Registra início no banco
+        if (settings.registerDatabase) {
           const reactedBy = msg.pushName || 'Usuário desconhecido';
           await startAttendance(pool, reactionMsgId, reactedBy);
         }
       }
-      // 🏁 = finaliza atendimento
+
+      // 🏁 = finaliza atendimento na sala X
       else if (finalizationEmojis.includes(emoji)) {
-        if (settings.markEmojis) {
-          await removeMarks(textoOriginal, original.chatId, sock);
-        }
-        if (settings.registerDatabase) {
+        const sala = reactedChatId;
+        const msgIdAtual = currentAttendance.get(sala);
+
+        // ➊ Finaliza no banco
+        if (settings.registerDatabase && msgIdAtual) {
           const now = new Date();
           const horaAgora = now.toTimeString().slice(0,8);
-          await finalizeAttendance(pool, reactionMsgId, horaAgora, now);
+          await finalizeAttendance(pool, msgIdAtual, horaAgora, now);
         }
+
+        // ➋ Remove apenas o emoji daquela sala (emojiX) de todas as salas
+        if (settings.markEmojis) {
+          await removeMarks(textoOriginal, sala, sock);
+        }
+
+        // ➌ Limpa o rastreador
+        currentAttendance.delete(sala);
       }
+
 
       // log e publishes
       logMessage(chatId, textoOriginal, true, emoji);
