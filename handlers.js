@@ -45,6 +45,19 @@ async function handleIncomingMessages(upsert, sock) {
     if (text) {
       messageCache.set(msgId, { chatId, text, fromMe: msg.key.fromMe });
       await insertMessage(pool, msgId, chatId, branch, text, msg.key.fromMe);
+
+      // Insere entrada em atendimentos
+      const now = new Date();
+      const dataHoje   = now.toISOString().slice(0,10);
+      const horaRegistro = now.toTimeString().slice(0,8);
+      const [paciente, empresa] = textoOriginal.split(/\s*-\s*/).map(s => s.trim());
+      await pool.query(
+        `INSERT INTO atendimentos
+           (msgId, paciente, empresa, sala, branch, data, hora_registro)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [ msgId, paciente, empresa, chatId, branch, dataHoje, horaRegistro ]
+      );
+
       logMessage(chatId, text);
 
       if (topics?.topicMessages) {
@@ -109,7 +122,40 @@ async function handleIncomingMessages(upsert, sock) {
         // Atualiza o banco de dados
         if (config.settings.registerDatabase) {
           await finalizePreviousUnfinishedAttendance(pool, reactedChatId, reactionMsgId, new Date().toTimeString().slice(0, 8), new Date());
-          await insertOrUpdateAttendance(pool, reactionMsgId, nome, empresa, sala, branchReact, dataLocal, new Date().toTimeString().slice(0, 8), reactedBy);
+
+          // Insere ou atualiza o atendimento, já calculando o tempo de espera
+          const now = new Date();
+          const horaInicio = now.toTimeString().slice(0,8);
+          const caller     = msg.pushName || 'Usuário desconhecido';
+
+          // 1) Busca hora_registro para calcular a espera
+          const [rowsPrev] = await pool.query(
+            `SELECT data, hora_registro
+              FROM atendimentos
+              WHERE msgId = ?`,
+            [ reactionMsgId ]
+          );
+
+          let espera = null;
+          if (rowsPrev.length) {
+            const dataPrev = rowsPrev[0].data;
+            const horaPrev = rowsPrev[0].hora_registro;
+            const ymdPrev  = `${dataPrev.getFullYear()}-${String(dataPrev.getMonth()+1).padStart(2,'0')}-${String(dataPrev.getDate()).padStart(2,'0')}`;
+            const dtPrev   = new Date(`${ymdPrev}T${horaPrev}`);
+            const durMs    = now - dtPrev;
+            const min      = Math.floor(durMs/60000);
+            const sec      = Math.floor((durMs%60000)/1000);
+            espera         = `${min}m ${sec}s`;
+          }
+
+          // 2) Atualiza hora_inicio, caller e espera
+          await pool.query(
+            `UPDATE atendimentos
+                SET hora_inicio = ?, caller = ?, espera = ?
+              WHERE msgId = ?`,
+            [ horaInicio, caller, espera, reactionMsgId ]
+          );
+          // await insertOrUpdateAttendance(pool, reactionMsgId, nome, empresa, sala, branchReact, dataLocal, new Date().toTimeString().slice(0, 8), reactedBy);
         }
       } else if (finalizationEmojis.includes(emoji) && original) {
         // Remove marca no Whatsapp
@@ -426,8 +472,10 @@ async function ensureTables(pool) {
       sala VARCHAR(255),
       branch VARCHAR(255),
       \`data\` DATE,
+      hora_register TIME,
       hora_inicio TIME,
       hora_fim TIME,
+      espera VARCHAR(50),
       duracao VARCHAR(50),
       caller VARCHAR(255)
     )

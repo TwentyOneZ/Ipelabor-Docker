@@ -18,8 +18,10 @@ CREATE TABLE IF NOT EXISTS atendimentos (
     sala VARCHAR(255),
     branch VARCHAR(255),
     `data` DATE,
+    hora_registro TIME,
     hora_inicio TIME,
     hora_fim TIME,
+    espera VARCHAR(50),
     duracao VARCHAR(50),
     caller VARCHAR(255)
 );
