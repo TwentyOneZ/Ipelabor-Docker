@@ -12,6 +12,8 @@ const { DisconnectReason } = require('@whiskeysockets/baileys');
 const { handleIncomingMessages } = require('./handlers');
 
 let sock = null;
+const P = require('pino');
+const baileysLogger = P({ level: 'warn' })
 
 /**
  * Inicia a conexão com o WhatsApp e armazena
@@ -23,7 +25,7 @@ async function connectWhatsApp() {
 
   sock = makeWASocket({
     version,
-    logger,
+    logger: baileysLogger,
     printQRInTerminal: true,
     auth: {
       creds: state.creds,

@@ -51,12 +51,12 @@ async function ensureTables(pool) {
 /**
  * Insere no log de mensagens brutas.
  */
-async function insertMessage(pool, msgId, chatId, branch, text, fromMe) {
+async function insertMessage(pool, msgId, chatId, branch, text, fromMe, participant) {
   await pool.query(
     `INSERT IGNORE INTO messages 
-       (msgId, chatId, branch, text, fromMe)
-     VALUES (?, ?, ?, ?, ?)`,
-    [ msgId, chatId, branch, text, fromMe ? 1 : 0 ]
+       (msgId, chatId, branch, text, fromMe, participant)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [ msgId, chatId, branch, text, fromMe ? 1 : 0, participant ]
   );
 }
 
@@ -65,7 +65,7 @@ async function insertMessage(pool, msgId, chatId, branch, text, fromMe) {
  */
 async function getMessageById(pool, msgId) {
   const [rows] = await pool.query(
-    `SELECT chatId, text, fromMe FROM messages WHERE msgId = ?`,
+    `SELECT chatId, text, fromMe, participant FROM messages WHERE msgId = ?`,
     [ msgId ]
   );
   return rows.length ? rows[0] : null;
@@ -201,7 +201,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
   for (const chatId of chats) {
     // limpa reações anteriores
     const [oldMsgs] = await pool.query(`
-      SELECT msgId, fromMe
+      SELECT msgId, fromMe, participant
         FROM messages
        WHERE chatId = ?
          AND \`timestamp\` >= CURDATE()
@@ -210,36 +210,45 @@ async function markUniqueInRoom(text, origemChatId, sock) {
        LIMIT 10
     `, [ chatId ]);
 
-    for (const { msgId, fromMe } of oldMsgs) {
+    for (const { msgId, fromMe, participant } of oldMsgs) {
       try {
         await sock.sendMessage(chatId, {
-          react: { text:'', key:{ id:msgId, remoteJid:chatId, fromMe } }
+          react: { text:'', key:{ id:msgId, remoteJid:chatId, fromMe , participant} }
         });
       } catch (e) {
         logger.error(`❌ falha ao limpar reação em ${config.rooms?.[chatId] || ''} msg ${msgId}:`, e.message);
       }
     }
 
-    // aplica novo emoji
+    // aplica novo emoji, com até 3 tentativas em cada msgId
     const [matching] = await pool.query(`
-      SELECT msgId, fromMe
+      SELECT msgId, fromMe, participant
         FROM messages
-       WHERE chatId = ? AND text = ?
-         AND \`timestamp\` >= CURDATE()
-         AND \`timestamp\` < CURDATE() + INTERVAL 1 DAY
-       ORDER BY \`timestamp\` DESC
-       LIMIT 10
+      WHERE chatId = ? AND text = ?
+        AND \`timestamp\` >= CURDATE()
+        AND \`timestamp\` < CURDATE() + INTERVAL 1 DAY
+      ORDER BY \`timestamp\` DESC
+      LIMIT 10
     `, [ chatId, text ]);
-    
-    for (const { msgId, fromMe } of matching) {
-      try {
-        await sock.sendMessage(chatId, {
-          react: { text: salaEmoji, key: { id: msgId, remoteJid: chatId, fromMe } }
-        });
-        logger.info(`✔️ Marcado ${salaEmoji} em ${config.rooms?.[chatId] || ''} para “${text}”`);
-        logger.info(`(${salaEmoji} em chatID ${chatId} para msdID ${msgId})`);
-      } catch(e) {
-        logger.error(`❌ falha ao marcar em ${config.rooms?.[chatId] || ''}:`, e.message);
+
+    for (const { msgId, fromMe, participant } of matching) {
+      for (let tentativa = 1; tentativa <= 3; tentativa++) {
+        try {
+          await sock.sendMessage(chatId, {
+            react: {
+              text: salaEmoji,
+              key: { id: msgId, remoteJid: chatId, fromMe, participant }
+            }
+          });
+          logger.info(`✔️ Marcado ${salaEmoji} em ${config.rooms?.[chatId] || ''} para “${text}”`);
+          break;  // emoji aplicado com sucesso, sai do loop de retry
+        } catch (err) {
+          logger.error(`❌ falha ao marcar em ${config.rooms?.[chatId] || ''} (tentativa ${tentativa}):`, err.message);
+          // se não for a última tentativa, aguarda um pouco antes de tentar de novo
+          if (tentativa < 3) {
+            await new Promise(res => setTimeout(res, tentativa * 200));
+          }
+        }
       }
     }
   }
@@ -256,7 +265,7 @@ async function removeMarks(text, origemChatId, sock) {
 
   for (const chatId of chats) {
     const [rows] = await pool.query(`
-      SELECT msgId, fromMe
+      SELECT msgId, fromMe, participant
         FROM messages
        WHERE chatId = ? AND text = ?
          AND \`timestamp\` >= CURDATE()
@@ -265,10 +274,10 @@ async function removeMarks(text, origemChatId, sock) {
        LIMIT 10
     `, [ chatId, text ]);
 
-    for (const { msgId, fromMe } of rows) {
+    for (const { msgId, fromMe, participant } of rows) {
       try {
         await sock.sendMessage(chatId, {
-          react:{ text:'', key:{ id:msgId, remoteJid:chatId, fromMe } }
+          react:{ text:'', key:{ id:msgId, remoteJid:chatId, fromMe, participant } }
         });
         logger.info(`🗑️ Reação removida em ${config.rooms?.[chatId] || ''} para "${text}"`);
       } catch(e) {
@@ -373,8 +382,8 @@ async function handleIncomingMessages(upsert, sock) {
         logger.debug(`❌ Ignorando texto sem hífen: "${text}"`);
         continue;
       } else {
-        messageCache.set(msgId, { chatId, text, fromMe: msg.key.fromMe });
-        await insertMessage(pool, msgId, chatId, branch, text, msg.key.fromMe);
+        messageCache.set(msgId, { chatId, text, fromMe: msg.key.fromMe, participant: msg.key.participant || msg.key.remoteJid });
+        await insertMessage(pool, msgId, chatId, branch, text, msg.key.fromMe, msg.key.participant || msg.key.remoteJid);
 
         if (settings.registerDatabase) {
           await registerAttendanceOnReceive(pool, msgId, chatId, branch, text);
@@ -404,6 +413,8 @@ async function handleIncomingMessages(upsert, sock) {
       const reactionMsgId = reaction.key.id;
       const reactedChatId = reaction.key.remoteJid;
       const branchReact   = getBranchByChatId(reactedChatId);
+      const participant   = msg.key.participant || msg.key.remoteJid;
+
       if (!branchReact) continue;
 
       // Recupera texto original
