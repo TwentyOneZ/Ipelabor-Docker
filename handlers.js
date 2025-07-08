@@ -50,7 +50,7 @@ async function handleIncomingMessages(upsert, sock) {
       const now = new Date();
       const dataHoje   = now.toISOString().slice(0,10);
       const horaRegistro = now.toTimeString().slice(0,8);
-      const [paciente, empresa] = textoOriginal.split(/\s*-\s*/).map(s => s.trim());
+      const [paciente, empresa] = text.split(/\s*-\s*/).map(s => s.trim());
       await pool.query(
         `INSERT INTO atendimentos
            (msgId, paciente, empresa, sala, branch, data, hora_registro)
