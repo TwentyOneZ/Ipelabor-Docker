@@ -1,7 +1,7 @@
 // handlers.js
 
 const { logMessage } = require('./logUtils');
-const { getTopicsByBranch, getBranchByChatId } = require('./utils');
+const { getTopicsByBranch, getBranchByChatId, normalizeText } = require('./utils');
 const { getPool } = require('./database');
 const { getMQTT } = require('./mqttClient');
 const logger = require('./logger');
@@ -84,7 +84,10 @@ async function registerAttendanceOnReceive(pool, msgId, chatId, branch, text) {
   const DD   = String(now.getDate()).padStart(2, '0');
   const date = `${YYYY}-${MM}-${DD}`;
   const time = now.toTimeString().slice(0,8);
-  const parts = text.split(/\s*-\s*/);
+  
+  // aplica o filtro de casos mal-formatados
+  const cleaned = normalizeText(text);
+  const parts = cleaned.split(/\s*-\s*/);
   const paciente    = parts[0].trim();
   const empresa = parts.length > 1
     ? parts.slice(1).join(' - ').trim()
@@ -497,6 +500,7 @@ async function handleIncomingMessages(upsert, sock) {
       }
     }
   }
+
 }
 
 module.exports = { handleIncomingMessages };

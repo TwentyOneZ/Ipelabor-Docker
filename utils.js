@@ -17,4 +17,17 @@ function getTopicsByBranch(branch) {
     };
 }
 
-module.exports = { getBranchByChatId, getTopicsByBranch };
+function normalizeText(text) {
+  // remove espaços iniciais
+  let t = text.trimStart();
+
+  // testa "não-alfaNumérico* + hífen"
+  if (/^[^A-Za-z0-9]+-/.test(t)) {
+    // remove até (e incluindo) o primeiro hífen
+    t = t.replace(/^[^A-Za-z0-9]+-/, '');
+  }
+
+  return t.trim();
+}
+
+module.exports = { getBranchByChatId, getTopicsByBranch, normalizeText };
