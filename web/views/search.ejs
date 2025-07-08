@@ -39,7 +39,25 @@
 <body>
   <div class="header"></div>
 
-  <% if (results.length > 0) {
+  <div class="filters">
+    <form method="POST" action="/search">
+      <input name="name"    placeholder="Nome"      value="<%= filters.name      %>">
+      <input name="empresa" placeholder="Empresa"   value="<%= filters.empresa   %>">
+      <input name="sala"    placeholder="Sala"      value="<%= filters.sala      %>">
+      <input name="branch"  placeholder="Local"     value="<%= filters.branch    %>">
+      <input name="caller"  placeholder="Atendente" value="<%= filters.caller    %>">
+      <label>Data Início:
+        <input name="startDate" type="date" value="<%= filters.startDate %>">
+      </label>
+      <label>Data Fim:
+        <input name="endDate"   type="date" value="<%= filters.endDate   %>">
+      </label>
+      <!-- campos hidden para sort -->
+      <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy  %>">
+      <input type="hidden" name="sortDir" id="sortDir" value="<%= sorting.sortDir %>">
+      <button type="submit">Buscar</button>
+    </form>
+    <% if (results.length > 0) {
       // calcula estatísticas
       const total          = results.length;
       const uniquePatients = new Set(results.map(r => r.paciente)).size;
@@ -71,25 +89,6 @@
       </div>
     </div>
   <% } %>
-
-  <div class="filters">
-    <form method="POST" action="/search">
-      <input name="name"    placeholder="Nome"      value="<%= filters.name      %>">
-      <input name="empresa" placeholder="Empresa"   value="<%= filters.empresa   %>">
-      <input name="sala"    placeholder="Sala"      value="<%= filters.sala      %>">
-      <input name="branch"  placeholder="Local"     value="<%= filters.branch    %>">
-      <input name="caller"  placeholder="Atendente" value="<%= filters.caller    %>">
-      <label>Data Início:
-        <input name="startDate" type="date" value="<%= filters.startDate %>">
-      </label>
-      <label>Data Fim:
-        <input name="endDate"   type="date" value="<%= filters.endDate   %>">
-      </label>
-      <!-- campos hidden para sort -->
-      <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy  %>">
-      <input type="hidden" name="sortDir" id="sortDir" value="<%= sorting.sortDir %>">
-      <button type="submit">Buscar</button>
-    </form>
   </div>
 
   <% if (results.length > 0) { %>
