@@ -81,7 +81,11 @@ async function registerAttendanceOnReceive(pool, msgId, chatId, branch, text) {
   const DD   = String(now.getDate()).padStart(2, '0');
   const date = `${YYYY}-${MM}-${DD}`;
   const time = now.toTimeString().slice(0,8);
-  const [paciente, empresa] = text.split(/\s*-\s*/).map(s => s.trim());
+  const parts = textoOriginal.split(/\s*-\s*/);
+  const paciente    = parts[0].trim();
+  const empresa = parts.length > 1
+    ? parts.slice(1).join(' - ').trim()
+    : '';
   const sala = config.rooms?.[chatId] || '';
 
   await pool.query(
@@ -413,7 +417,7 @@ async function handleIncomingMessages(upsert, sock) {
       if (emoji === '❤️') {
         // marca no WhatsApp
         if (settings.markEmojis) {
-          await markUniqueInRoom(textoOriginal, original.chatId, sock);
+          await markUniqueInRoom(textoOriginal, reactedChatId, sock);
         }
 
         // atualiza DB
