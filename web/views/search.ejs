@@ -36,25 +36,6 @@
 </head>
 <body>
   <div class="header"></div>
-  <div class="filters">
-    <form method="POST" action="/search">
-      <input name="name"    placeholder="Nome"      value="<%= filters.name      %>">
-      <input name="empresa" placeholder="Empresa"   value="<%= filters.empresa   %>">
-      <input name="sala"    placeholder="Sala"      value="<%= filters.sala      %>">
-      <input name="branch"  placeholder="Local"     value="<%= filters.branch    %>">
-      <input name="caller"  placeholder="Atendente" value="<%= filters.caller    %>">
-      <label>Data Início:
-        <input name="startDate" type="date" value="<%= filters.startDate %>">
-      </label>
-      <label>Data Fim:
-        <input name="endDate"   type="date" value="<%= filters.endDate   %>">
-      </label>
-      <!-- campos hidden para sort -->
-      <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy  %>">
-      <input type="hidden" name="sortDir" id="sortDir" value="<%= sorting.sortDir %>">
-      <button type="submit">Buscar</button>
-    </form>
-
     <% if (results.length > 0) {
       // calcula estatísticas
       const total          = results.length;
@@ -77,11 +58,40 @@
       <div class="stats">
         <p>Total de entradas:       <%= total           %></p>
         <p>Pacientes únicos:        <%= uniquePatients %></p>
-        <p>Tempo médio de espera:   <%= fmt(avgEsperaSec)  %></p>
-        <p>Tempo médio de duração:  <%= fmt(avgDuracaoSec) %></p>
+        <p><ul>Tempo médio de:</p>
+        <li>Espera:   <%= fmt(avgEsperaSec)  %></li>
+        <li>Atendimento:  <%= fmt(avgDuracaoSec) %></li></ul></p>
       </div>
     <% } %>
-
+     <div class="stats" style="display:flex;gap:24px;padding:12px;background:rgba(0,0,0,0.05);border-radius:4px;margin:0 20px 16px;">
+       <div>
+         <p>Total de entradas: <strong><%= total %></strong></p>
+         <p>Pacientes únicos: <strong><%= uniquePatients %></strong></p>
+       </div>
+       <div>
+         <p>Tempo médio de espera: <strong><%= fmt(avgEsperaSec) %></strong></p>
+         <p>Tempo médio de duração: <strong><%= fmt(avgDuracaoSec) %></strong></p>
+       </div>
+     </div>
+   <% } %>
+  <div class="filters">
+    <form method="POST" action="/search">
+      <input name="name"    placeholder="Nome"      value="<%= filters.name      %>">
+      <input name="empresa" placeholder="Empresa"   value="<%= filters.empresa   %>">
+      <input name="sala"    placeholder="Sala"      value="<%= filters.sala      %>">
+      <input name="branch"  placeholder="Local"     value="<%= filters.branch    %>">
+      <input name="caller"  placeholder="Atendente" value="<%= filters.caller    %>">
+      <label>Data Início:
+        <input name="startDate" type="date" value="<%= filters.startDate %>">
+      </label>
+      <label>Data Fim:
+        <input name="endDate"   type="date" value="<%= filters.endDate   %>">
+      </label>
+      <!-- campos hidden para sort -->
+      <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy  %>">
+      <input type="hidden" name="sortDir" id="sortDir" value="<%= sorting.sortDir %>">
+      <button type="submit">Buscar</button>
+    </form>
   </div>
 
   <% if (results.length > 0) { %>
