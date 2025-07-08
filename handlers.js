@@ -81,7 +81,7 @@ async function registerAttendanceOnReceive(pool, msgId, chatId, branch, text) {
   const DD   = String(now.getDate()).padStart(2, '0');
   const date = `${YYYY}-${MM}-${DD}`;
   const time = now.toTimeString().slice(0,8);
-  const parts = textoOriginal.split(/\s*-\s*/);
+  const parts = text.split(/\s*-\s*/);
   const paciente    = parts[0].trim();
   const empresa = parts.length > 1
     ? parts.slice(1).join(' - ').trim()
