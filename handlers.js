@@ -207,7 +207,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
          AND \`timestamp\` >= CURDATE()
          AND \`timestamp\` < CURDATE() + INTERVAL 1 DAY
        ORDER BY \`timestamp\` DESC
-       LIMIT 50
+       LIMIT 10
     `, [ chatId ]);
 
     for (const { msgId, fromMe } of oldMsgs) {
@@ -228,15 +228,16 @@ async function markUniqueInRoom(text, origemChatId, sock) {
          AND \`timestamp\` >= CURDATE()
          AND \`timestamp\` < CURDATE() + INTERVAL 1 DAY
        ORDER BY \`timestamp\` DESC
-       LIMIT 50
+       LIMIT 10
     `, [ chatId, text ]);
     
     for (const { msgId, fromMe } of matching) {
       try {
         await sock.sendMessage(chatId, {
-          react:{ text:salaEmoji, key:{ id:msgId, remoteJid:chatId, fromMe } }
+          react: { text: salaEmoji, key: { id: msgId, remoteJid: chatId, fromMe } }
         });
-        logger.info(`✔️ Marcado ${salaEmoji} em ${chatId} para “${text}”`);
+        logger.info(`✔️ Marcado ${salaEmoji} em ${config.rooms?.[chatId] || ''} para “${text}”`);
+        logger.debug(`(${salaEmoji} em chatID ${chatId} para msdID ${msgId})`);
       } catch(e) {
         logger.error(`❌ falha ao marcar em ${config.rooms?.[chatId] || ''}:`, e.message);
       }
@@ -423,7 +424,7 @@ async function handleIncomingMessages(upsert, sock) {
       if (emoji === '❤️') {
         // marca no WhatsApp
         if (settings.markEmojis) {
-          await markUniqueInRoom(textoOriginal, reactedChatId, sock);
+          await markUniqueInRoom(textoOriginal, original.chatId, sock);
         }
 
         // atualiza DB
