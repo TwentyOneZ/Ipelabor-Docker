@@ -360,11 +360,17 @@ async function handleIncomingMessages(upsert, sock) {
                 || msg.message?.imageMessage?.caption
                 || '';
 
+                if (!branch) {
+      logger.debug(`⏭️ Ignorando mensagem de chat não mapeado: ${chatId}`);
+      continue;
+    }
+
     // --- 1) Mensagem de texto recebida ---
     if (text) {
       // Só processa se contiver hífen
       if (!text.includes('-')) {
         logger.debug(`❌ Ignorando texto sem hífen: "${text}"`);
+        continue;
       } else {
         messageCache.set(msgId, { chatId, text, fromMe: msg.key.fromMe });
         await insertMessage(pool, msgId, chatId, branch, text, msg.key.fromMe);
