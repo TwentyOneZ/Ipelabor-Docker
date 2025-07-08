@@ -170,16 +170,17 @@ async function markUniqueInRoom(text, origemChatId, sock) {
   const salaEmoji = (config.emojis || {})[origemChatId] || '✅';
 
   for (const chatId of chats) {
-    // limpa reações anteriores
+    // limpa apenas reações antigas DESSA MESMA mensagem (mesmo texto)
     const [oldMsgs] = await pool.query(`
       SELECT msgId, fromMe, participant
         FROM messages
-       WHERE chatId = ?
-         AND \`timestamp\` >= CURDATE()
-         AND \`timestamp\` < CURDATE() + INTERVAL 1 DAY
-       ORDER BY \`timestamp\` DESC
-       LIMIT 10
-    `, [ chatId ]);
+      WHERE chatId = ?
+        AND text       = ?
+        AND \`timestamp\` >= CURDATE()
+        AND \`timestamp\` < CURDATE() + INTERVAL 1 DAY
+      ORDER BY \`timestamp\` DESC
+      LIMIT 10
+    `, [ chatId, text ]);
 
     for (const { msgId, fromMe, participant } of oldMsgs) {
       for (let tentativa = 1; tentativa <= 10; tentativa++) {
