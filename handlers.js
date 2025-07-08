@@ -218,10 +218,10 @@ async function markUniqueInRoom(text, origemChatId, sock) {
           });
           await new Promise(res => setTimeout(res, 50));
           break;  // emoji aplicado com sucesso, sai do loop de retry
-        } catch (e) {
+        } catch (err) {
           logger.error(`❌ falha ao limpar reação em ${config.rooms?.[chatId] || ''} (tentativa ${tentativa}):`, err.message);
           // se não for a última tentativa, aguarda um pouco antes de tentar de novo
-          if (tentativa < 3) {
+          if (tentativa < 10) {
             await new Promise(res => setTimeout(res, tentativa * 50));
           }
         }
@@ -254,7 +254,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
         } catch (err) {
           logger.error(`❌ falha ao marcar em ${config.rooms?.[chatId] || ''} (tentativa ${tentativa}):`, err.message);
           // se não for a última tentativa, aguarda um pouco antes de tentar de novo
-          if (tentativa < 3) {
+          if (tentativa < 10) {
             await new Promise(res => setTimeout(res, tentativa * 50));
           }
         }
