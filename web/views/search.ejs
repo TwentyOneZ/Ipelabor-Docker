@@ -13,10 +13,12 @@
       display: none;
     }
     .stats {
-      margin-top: 16px;
+      display: flex;
+      gap: 24px;
       padding: 12px;
       background: rgba(0,0,0,0.05);
       border-radius: 4px;
+      margin: 16px 20px;
     }
     .stats p { margin: 4px 0; font-weight: 500; }
   </style>
@@ -36,15 +38,14 @@
 </head>
 <body>
   <div class="header"></div>
-    <% if (results.length > 0) {
+
+  <% if (results.length > 0) {
       // calcula estatísticas
       const total          = results.length;
       const uniquePatients = new Set(results.map(r => r.paciente)).size;
       const parseSec = t => {
         if (!t) return 0;
-        const parts = t.split('m ');
-        const m = parseInt(parts[0]) || 0;
-        const s = parseInt(parts[1]?.replace('s','')) || 0;
+        const [m, s] = t.replace('s','').split('m ').map(x=>parseInt(x)||0);
         return m*60 + s;
       };
       const avgEsperaSec  = results.reduce((sum, r) => sum + parseSec(r.espera), 0) / total;
@@ -54,26 +55,19 @@
         const s = Math.round(sec % 60);
         return `${m}m ${s}s`;
       };
-    %>
-      <div class="stats">
-        <p>Total de entradas:       <%= total           %></p>
-        <p>Pacientes únicos:        <%= uniquePatients %></p>
-        <p><ul>Tempo médio de:</p>
-        <li>Espera:   <%= fmt(avgEsperaSec)  %></li>
-        <li>Atendimento:  <%= fmt(avgDuracaoSec) %></li></ul></p>
+  %>
+    <div class="stats">
+      <div>
+        <p>Total de entradas:    <strong><%= total %></strong></p>
+        <p>Pacientes únicos:     <strong><%= uniquePatients %></strong></p>
       </div>
-    <% } %>
-     <div class="stats" style="display:flex;gap:24px;padding:12px;background:rgba(0,0,0,0.05);border-radius:4px;margin:0 20px 16px;">
-       <div>
-         <p>Total de entradas: <strong><%= total %></strong></p>
-         <p>Pacientes únicos: <strong><%= uniquePatients %></strong></p>
-       </div>
-       <div>
-         <p>Tempo médio de espera: <strong><%= fmt(avgEsperaSec) %></strong></p>
-         <p>Tempo médio de duração: <strong><%= fmt(avgDuracaoSec) %></strong></p>
-       </div>
-     </div>
-   <% } %>
+      <div>
+        <p>Tempo médio de espera:   <strong><%= fmt(avgEsperaSec) %></strong></p>
+        <p>Tempo médio de duração:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
+      </div>
+    </div>
+  <% } %>
+
   <div class="filters">
     <form method="POST" action="/search">
       <input name="name"    placeholder="Nome"      value="<%= filters.name      %>">
@@ -116,26 +110,26 @@
         <tbody>
           <% results.forEach(r => { %>
             <tr>
-              <td><%= r.msgId            %></td>
-              <td><%= r.paciente         %></td>
-              <td><%= r.empresa          %></td>
-              <td><%= r.sala             %></td>
-              <td><%= r.branch           %></td>
-              <td><%= r.data instanceof Date 
-                    ? r.data.toLocaleDateString('pt-BR') 
+              <td><%= r.msgId         %></td>
+              <td><%= r.paciente      %></td>
+              <td><%= r.empresa       %></td>
+              <td><%= r.sala          %></td>
+              <td><%= r.branch        %></td>
+              <td>
+                <%= r.data instanceof Date
+                    ? r.data.toLocaleDateString('pt-BR')
                     : r.data %>
               </td>
-              <td><%= r.hora_registro    %></td>
-              <td><%= r.hora_inicio      %></td>
-              <td><%= r.hora_fim         %></td>
-              <td><%= r.espera           %></td>
-              <td><%= r.duracao          %></td>
-              <td><%= r.caller           %></td>
+              <td><%= r.hora_registro %></td>
+              <td><%= r.hora_inicio   %></td>
+              <td><%= r.hora_fim      %></td>
+              <td><%= r.espera        %></td>
+              <td><%= r.duracao       %></td>
+              <td><%= r.caller        %></td>
             </tr>
           <% }) %>
         </tbody>
       </table>
-
       <script>
         const form = document.querySelector('form');
         document.querySelectorAll('#resultsTable th').forEach(th => {
