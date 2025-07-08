@@ -212,9 +212,11 @@ async function markUniqueInRoom(text, origemChatId, sock) {
 
     for (const { msgId, fromMe, participant } of oldMsgs) {
       try {
+        const { setTimeout: delay } = require('timers/promises');
         await sock.sendMessage(chatId, {
           react: { text:'', key:{ id:msgId, remoteJid:chatId, fromMe , participant} }
         });
+        await delay(100);
       } catch (e) {
         logger.error(`❌ falha ao limpar reação em ${config.rooms?.[chatId] || ''} msg ${msgId}:`, e.message);
       }
