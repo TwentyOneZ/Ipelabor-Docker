@@ -14,13 +14,13 @@
     }
     .stats {
       display: flex;
-      gap: 2px;
-      padding: 1px;
+      gap: 37px;
+      padding: 10px;
       background: rgba(0,0,0,0.05);
       border-radius: 4px;
-      margin: 16px 3px;
+      margin: -25px 3px 0px 3px;
     }
-    .stats p { margin: 4px 0; font-weight: 500; }
+    .stats p { margin: 4px 0px; font-weight: 500; }
   </style>
   <script>
     // formata células que contenham '*' removendo o asterisco e deixando em negrito
@@ -61,6 +61,7 @@
       // calcula estatísticas
       const total          = results.length;
       const uniquePatients = new Set(results.map(r => r.paciente)).size;
+      const uniqueCompanies = new Set(results.map(r => r.empresa)).size;
       const parseSec = t => {
         if (!t) return 0;
         const [m, s] = t.replace('s','').split('m ').map(x=>parseInt(x)||0);
@@ -82,10 +83,13 @@
         <p>Pacientes únicos:     <strong><%= uniquePatients %></strong></p>
       </div>
       <div>
+        <p>Empresas únicas:     <strong><%= uniqueCompanies %></strong></p>
+      </div>
+      <div>
         <p>Tempo médio de espera:   <strong><%= fmt(avgEsperaSec) %></strong></p>
       </div>
       <div>
-        <p>Tempo médio de duração:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
+        <p>Tempo médio de atendimento:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
       </div>
     </div>
   <% } %>
