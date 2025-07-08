@@ -47,6 +47,7 @@ async function handleIncomingMessages(upsert, sock) {
       await insertMessage(pool, msgId, chatId, branch, text, msg.key.fromMe);
 
       logger.debug(`📤 Tentando mensagem salvar no banco de dados.`);
+      
       // Insere entrada em atendimentos
       const now = new Date();
       const ano   = now.getFullYear();
@@ -55,6 +56,7 @@ async function handleIncomingMessages(upsert, sock) {
       const dataHoje = `${ano}-${mes}-${dia}`;  // "2025-07-02"
       const horaRegistro = now.toTimeString().slice(0,8);
       const [paciente, empresa] = text.split(/\s*-\s*/).map(s => s.trim());
+
       await pool.query(
         `INSERT INTO atendimentos
            (msgId, paciente, empresa, sala, branch, data, hora_registro)

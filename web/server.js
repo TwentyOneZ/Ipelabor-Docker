@@ -125,8 +125,10 @@ app.post("/search", auth, (req, res) => {
       sala,
       branch,
       data,
+      hora_registro,
       hora_inicio,
       hora_fim,
+      espera,
       duracao,
       caller
     FROM atendimentos
@@ -148,5 +150,5 @@ app.post("/search", auth, (req, res) => {
 });
 
 app.listen(PORT, () => {
-  logger.info(`Servidor rodando em http://localhost:${PORT}`);
+  logger.info(`Servidor rodando em http://ipelabor.sytes.net:7000 (http://localhost:${PORT})`);
 });
