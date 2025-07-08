@@ -237,7 +237,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
           react: { text: salaEmoji, key: { id: msgId, remoteJid: chatId, fromMe } }
         });
         logger.info(`✔️ Marcado ${salaEmoji} em ${config.rooms?.[chatId] || ''} para “${text}”`);
-        logger.debug(`(${salaEmoji} em chatID ${chatId} para msdID ${msgId})`);
+        logger.info(`(${salaEmoji} em chatID ${chatId} para msdID ${msgId})`);
       } catch(e) {
         logger.error(`❌ falha ao marcar em ${config.rooms?.[chatId] || ''}:`, e.message);
       }
