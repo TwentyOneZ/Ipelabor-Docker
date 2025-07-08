@@ -46,9 +46,13 @@ async function handleIncomingMessages(upsert, sock) {
       messageCache.set(msgId, { chatId, text, fromMe: msg.key.fromMe });
       await insertMessage(pool, msgId, chatId, branch, text, msg.key.fromMe);
 
+      logger.debug(`📤 Tentando mensagem salvar no banco de dados.`);
       // Insere entrada em atendimentos
       const now = new Date();
-      const dataHoje   = now.toISOString().slice(0,10);
+      const ano   = now.getFullYear();
+      const mes   = String(now.getMonth() + 1).padStart(2, '0');
+      const dia   = String(now.getDate()).padStart(2, '0');
+      const dataHoje = `${ano}-${mes}-${dia}`;  // "2025-07-02"
       const horaRegistro = now.toTimeString().slice(0,8);
       const [paciente, empresa] = text.split(/\s*-\s*/).map(s => s.trim());
       await pool.query(
@@ -57,13 +61,7 @@ async function handleIncomingMessages(upsert, sock) {
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [ msgId, paciente, empresa, chatId, branch, dataHoje, horaRegistro ]
       );
-      (err) => {
-        if (err) {
-          logger.error('❌ Falha ao salvar no banco de dados:', err.message);
-        } else {
-          logger.info(`📤 Mensagem salva no banco de dados.`);
-        }
-      }
+      logger.info(`📤 Mensagem salva no banco de dados.`);
 
       logMessage(chatId, text);
 
