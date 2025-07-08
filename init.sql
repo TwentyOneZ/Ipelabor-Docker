@@ -23,5 +23,6 @@ CREATE TABLE IF NOT EXISTS atendimentos (
     hora_fim TIME,
     espera VARCHAR(50),
     duracao VARCHAR(50),
-    caller VARCHAR(255)
+    caller VARCHAR(255),
+    INDEX idx_atend_sala_fim_inicio (sala, hora_fim, hora_inicio DESC)
 );
