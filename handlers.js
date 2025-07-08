@@ -212,7 +212,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
           react: { text:'', key:{ id:msgId, remoteJid:chatId, fromMe } }
         });
       } catch (e) {
-        logger.error(`❌ falha ao limpar reação em ${chatId} msg ${msgId}:`, e.message);
+        logger.error(`❌ falha ao limpar reação em ${config.rooms?.[chatId] || ''} msg ${msgId}:`, e.message);
       }
     }
 
@@ -226,7 +226,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
        ORDER BY \`timestamp\` DESC
        LIMIT 10
     `, [ chatId, text ]);
-
+    
     for (const { msgId, fromMe } of matching) {
       try {
         await sock.sendMessage(chatId, {
@@ -234,7 +234,7 @@ async function markUniqueInRoom(text, origemChatId, sock) {
         });
         logger.info(`✔️ Marcado ${salaEmoji} em ${chatId} para “${text}”`);
       } catch(e) {
-        logger.error(`❌ falha ao marcar em ${chatId}:`, e.message);
+        logger.error(`❌ falha ao marcar em ${config.rooms?.[chatId] || ''}:`, e.message);
       }
     }
   }
@@ -265,9 +265,9 @@ async function removeMarks(text, origemChatId, sock) {
         await sock.sendMessage(chatId, {
           react:{ text:'', key:{ id:msgId, remoteJid:chatId, fromMe } }
         });
-        logger.info(`🗑️ Reação removida em ${chatId} para "${text}"`);
+        logger.info(`🗑️ Reação removida em ${config.rooms?.[chatId] || ''} para "${text}"`);
       } catch(e) {
-        logger.error(`❌ falha ao remover em ${chatId}:`, e.message);
+        logger.error(`❌ falha ao remover em ${config.rooms?.[chatId] || ''}:`, e.message);
       }
     }
   }
