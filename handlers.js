@@ -11,6 +11,8 @@ const messageCache = new Map();
 const settings = config.settings || {};
 const finalizationEmojis = (settings.finalizationEmojis || '')
   .split(',').map(e => e.trim());
+
+// Map<chatId, { msgId: string, text: string }>
 const currentAttendance = new Map();
 
 /**
@@ -422,19 +424,28 @@ async function handleIncomingMessages(upsert, sock) {
       if (emoji === '❤️') {
         const sala = reactedChatId;
 
-        // ➊ Se já houver atendimento em curso nessa sala, finalize-o
+        // ➊ Se já houver atendimento ativo, remova marcação e finalize-o
         if (currentAttendance.has(sala)) {
-          const prevMsgId = currentAttendance.get(sala);
-          const now = new Date();
-          const horaAgora = now.toTimeString().slice(0,8);
-          await finalizeAttendance(pool, prevMsgId, horaAgora, now);
-          logger.info(`🛑 Atendimento anterior em ${config.rooms?.[sala]} finalizado automaticamente.`);
+          const { msgId: prevMsgId, text: prevText } = currentAttendance.get(sala);
+
+          // ➊.1 Remove o emoji antigo (daquela sala) de TODAS as salas
+          if (settings.markEmojis) {
+            await removeMarks(prevText, sala, sock);
+          }
+
+          // ➊.2 Finaliza no banco
+          if (settings.registerDatabase) {
+            const now = new Date();
+            const horaAgora = now.toTimeString().slice(0,8);
+            await finalizeAttendance(pool, prevMsgId, horaAgora, now);
+            logger.info(`🛑 Atendimento anterior em ${config.rooms?.[sala]} finalizado automaticamente.`);
+          }
         }
 
-        // ➋ Registra o novo atendimento no Map
-        currentAttendance.set(sala, reactionMsgId);
+        // ➋ Armazena o novo atendimento (msgId + texto) no Map
+        currentAttendance.set(sala, { msgId: reactionMsgId, text: textoOriginal });
 
-        // ➌ Marca com emojiX em todas as salas
+        // ➌ Marca com emojiX em todas as salas para a nova mensagem
         if (settings.markEmojis) {
           await markUniqueInRoom(textoOriginal, sala, sock);
         }
@@ -446,25 +457,29 @@ async function handleIncomingMessages(upsert, sock) {
         }
       }
 
+
       // 🏁 = finaliza atendimento na sala X
       else if (finalizationEmojis.includes(emoji)) {
         const sala = reactedChatId;
-        const msgIdAtual = currentAttendance.get(sala);
+        const record = currentAttendance.get(sala);
+        if (record) {
+          const { msgId: msgIdAtual, text: recText } = record;
 
-        // ➊ Finaliza no banco
-        if (settings.registerDatabase && msgIdAtual) {
-          const now = new Date();
-          const horaAgora = now.toTimeString().slice(0,8);
-          await finalizeAttendance(pool, msgIdAtual, horaAgora, now);
+          // ➊ Finaliza no banco
+          if (settings.registerDatabase) {
+            const now = new Date();
+            const horaAgora = now.toTimeString().slice(0,8);
+            await finalizeAttendance(pool, msgIdAtual, horaAgora, now);
+          }
+
+          // ➋ Remove o emoji daquela sala de TODAS as salas para recText
+          if (settings.markEmojis) {
+            await removeMarks(recText, sala, sock);
+          }
+
+          // ➌ Limpa o rastreador
+          currentAttendance.delete(sala);
         }
-
-        // ➋ Remove apenas o emoji daquela sala (emojiX) de todas as salas
-        if (settings.markEmojis) {
-          await removeMarks(textoOriginal, sala, sock);
-        }
-
-        // ➌ Limpa o rastreador
-        currentAttendance.delete(sala);
       }
 
 
