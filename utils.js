@@ -18,8 +18,11 @@ function getTopicsByBranch(branch) {
 }
 
 function normalizeText(text) {
+  // ➊ remove todos os asteriscos
+  let t = text.replace(/\*/g, '');
+  
   // remove espaços iniciais
-  let t = text.trimStart();
+  t = t.trimStart();
 
   // testa "não-alfaNumérico* + hífen"
   if (/^[^A-Za-z0-9]+-/.test(t)) {
