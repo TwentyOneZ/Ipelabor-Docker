@@ -36,7 +36,7 @@
       <input name="empresa"     placeholder="Empresa"     value="<%= filters.empresa %>">
       <input name="sala"        placeholder="Sala"        value="<%= filters.sala %>">
       <input name="branch"      placeholder="Local"       value="<%= filters.branch %>">
-      <input name="caller"      placeholder="Atendente"       value="<%= filters.branch %>">
+      <input name="caller"      placeholder="Atendente"       value="<%= filters.caller %>">
       <label>Data Início:
         <input name="startDate" type="date" value="<%= filters.startDate %>">
       </label>
@@ -57,7 +57,7 @@
         <thead>
           <tr>
             <% 
-              const cols   = ['msgId','paciente','empresa','sala','branch','data','hora_inicio','hora_fim','duracao', 'caller'];
+              const cols   = ['msgId','paciente','empresa','sala','branch','data','hora_registro','hora_inicio','hora_fim','espera','duracao','caller'];
               const labels = { branch: 'Local' , caller: 'Atendente' };
             %>
             <% cols.forEach(col => { %>
@@ -83,8 +83,10 @@
                       ? r.data.toLocaleDateString('pt-BR') 
                       : r.data %>
               </td>
+              <td><%= r.hora_registro %></td>
               <td><%= r.hora_inicio %></td>
               <td><%= r.hora_fim %></td>
+              <td><%= r.espera %></td>
               <td><%= r.duracao %></td>
               <td><%= r.caller %></td>
             </tr>

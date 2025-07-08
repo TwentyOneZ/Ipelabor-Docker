@@ -57,6 +57,13 @@ async function handleIncomingMessages(upsert, sock) {
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [ msgId, paciente, empresa, chatId, branch, dataHoje, horaRegistro ]
       );
+      (err) => {
+        if (err) {
+          logger.error('❌ Falha ao salvar no banco de dados:', err.message);
+        } else {
+          logger.info(`📤 Mensagem salva no banco de dados.`);
+        }
+      }
 
       logMessage(chatId, text);
 
