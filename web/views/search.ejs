@@ -12,6 +12,13 @@
     #resultsTable th:first-child {
       display: none;
     }
+    .stats {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+    }
+    .stats p { margin: 4px 0; font-weight: 500; }
   </style>
   <script>
     // formata células que contenham '*' removendo o asterisco e deixando em negrito
@@ -28,27 +35,53 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <div class="header">
-  </div>
+  <div class="header"></div>
   <div class="filters">
     <form method="POST" action="/search">
-      <input name="name"        placeholder="Nome"        value="<%= filters.name %>">
-      <input name="empresa"     placeholder="Empresa"     value="<%= filters.empresa %>">
-      <input name="sala"        placeholder="Sala"        value="<%= filters.sala %>">
-      <input name="branch"      placeholder="Local"       value="<%= filters.branch %>">
-      <input name="caller"      placeholder="Atendente"       value="<%= filters.caller %>">
+      <input name="name"    placeholder="Nome"      value="<%= filters.name      %>">
+      <input name="empresa" placeholder="Empresa"   value="<%= filters.empresa   %>">
+      <input name="sala"    placeholder="Sala"      value="<%= filters.sala      %>">
+      <input name="branch"  placeholder="Local"     value="<%= filters.branch    %>">
+      <input name="caller"  placeholder="Atendente" value="<%= filters.caller    %>">
       <label>Data Início:
         <input name="startDate" type="date" value="<%= filters.startDate %>">
       </label>
       <label>Data Fim:
-        <input name="endDate"   type="date" value="<%= filters.endDate %>">
+        <input name="endDate"   type="date" value="<%= filters.endDate   %>">
       </label>
-
       <!-- campos hidden para sort -->
-      <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy %>">
+      <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy  %>">
       <input type="hidden" name="sortDir" id="sortDir" value="<%= sorting.sortDir %>">
       <button type="submit">Buscar</button>
     </form>
+
+    <% if (results.length > 0) {
+      // calcula estatísticas
+      const total          = results.length;
+      const uniquePatients = new Set(results.map(r => r.paciente)).size;
+      const parseSec = t => {
+        if (!t) return 0;
+        const parts = t.split('m ');
+        const m = parseInt(parts[0]) || 0;
+        const s = parseInt(parts[1]?.replace('s','')) || 0;
+        return m*60 + s;
+      };
+      const avgEsperaSec  = results.reduce((sum, r) => sum + parseSec(r.espera), 0) / total;
+      const avgDuracaoSec = results.reduce((sum, r) => sum + parseSec(r.duracao), 0) / total;
+      const fmt = sec => {
+        const m = Math.floor(sec/60);
+        const s = Math.round(sec % 60);
+        return `${m}m ${s}s`;
+      };
+    %>
+      <div class="stats">
+        <p>Total de entradas:       <%= total           %></p>
+        <p>Pacientes únicos:        <%= uniquePatients %></p>
+        <p>Tempo médio de espera:   <%= fmt(avgEsperaSec)  %></p>
+        <p>Tempo médio de duração:  <%= fmt(avgDuracaoSec) %></p>
+      </div>
+    <% } %>
+
   </div>
 
   <% if (results.length > 0) { %>
@@ -58,7 +91,7 @@
           <tr>
             <% 
               const cols   = ['msgId','paciente','empresa','sala','branch','data','hora_registro','hora_inicio','hora_fim','espera','duracao','caller'];
-              const labels = { branch: 'Local' , caller: 'Atendente' };
+              const labels = { branch: 'Local', caller: 'Atendente' };
             %>
             <% cols.forEach(col => { %>
               <th 
@@ -73,26 +106,26 @@
         <tbody>
           <% results.forEach(r => { %>
             <tr>
-              <td><%= r.msgId %></td>
-              <td><%= r.paciente %></td>
-              <td><%= r.empresa %></td>
-              <td><%= r.sala %></td>
-              <td><%= r.branch %></td>
-              <td>
-                <%= r.data instanceof Date 
-                      ? r.data.toLocaleDateString('pt-BR') 
-                      : r.data %>
+              <td><%= r.msgId            %></td>
+              <td><%= r.paciente         %></td>
+              <td><%= r.empresa          %></td>
+              <td><%= r.sala             %></td>
+              <td><%= r.branch           %></td>
+              <td><%= r.data instanceof Date 
+                    ? r.data.toLocaleDateString('pt-BR') 
+                    : r.data %>
               </td>
-              <td><%= r.hora_registro %></td>
-              <td><%= r.hora_inicio %></td>
-              <td><%= r.hora_fim %></td>
-              <td><%= r.espera %></td>
-              <td><%= r.duracao %></td>
-              <td><%= r.caller %></td>
+              <td><%= r.hora_registro    %></td>
+              <td><%= r.hora_inicio      %></td>
+              <td><%= r.hora_fim         %></td>
+              <td><%= r.espera           %></td>
+              <td><%= r.duracao          %></td>
+              <td><%= r.caller           %></td>
             </tr>
           <% }) %>
         </tbody>
       </table>
+
       <script>
         const form = document.querySelector('form');
         document.querySelectorAll('#resultsTable th').forEach(th => {
@@ -108,5 +141,6 @@
       </script>
     </div>
   <% } %>
+
 </body>
 </html>
