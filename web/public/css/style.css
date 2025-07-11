@@ -216,6 +216,11 @@ form button:hover {
   opacity: 0.9;
 }
 
+/* formata o botão de exclusão */
+#deleteForm button {
+  margin-bottom: 8px;
+}
+
 /* aumenta a largura da coluna Sala */
 #resultsTable th:nth-child(4),
 #resultsTable td:nth-child(4) {

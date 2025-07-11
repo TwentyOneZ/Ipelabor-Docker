@@ -102,6 +102,42 @@ app.post("/search", auth, (req, res) => {
     endDate   = ''
   } = req.body;
 
+  // POST /delete → exclui seleções
+  app.post("/delete", auth, (req, res) => {
+    let { deleteIds } = req.body;
+    if (!deleteIds) {
+      return res.redirect("/search");
+    }
+    // garante array
+    if (!Array.isArray(deleteIds)) {
+      deleteIds = [ deleteIds ];
+    }
+    // 1) apaga de atendimentos
+    db.query(
+      "DELETE FROM atendimentos WHERE msgId IN (?)",
+      [ deleteIds ],
+      (err) => {
+        if (err) {
+          logger.error("Erro ao excluir atendimentos:", err);
+          return res.status(500).send("Erro ao excluir atendimentos.");
+        }
+        // 2) apaga de messages
+        db.query(
+          "DELETE FROM messages WHERE msgId IN (?)",
+          [ deleteIds ],
+          (err2) => {
+            if (err2) {
+              logger.error("Erro ao excluir messages:", err2);
+              return res.status(500).send("Erro ao excluir mensagens.");
+            }
+            // redireciona mantendo filtros zerados (ou você pode levar via querystring)
+            res.redirect("/search");
+          }
+        );
+      }
+    );
+  });
+  
   const sortBy  = req.body.sortBy  || 'data';
   const sortDir = req.body.sortDir === 'ASC' ? 'ASC' : 'DESC';
 

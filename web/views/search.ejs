@@ -112,6 +112,7 @@
                 <%= labels[col] || (col.charAt(0).toUpperCase() + col.slice(1).replace('_',' ')) %>
               </th>
             <% }) %>
+            <th>Selecione</th>
           </tr>
         </thead>
         <tbody>
@@ -133,6 +134,13 @@
               <td><%= r.espera        %></td>
               <td><%= r.duracao       %></td>
               <td><%= r.caller        %></td>
+              <td>
+                <input
+                  type="checkbox"
+                  name="deleteIds"
+                  value="<%= r.msgId %>"
+                >
+              </td>
             </tr>
           <% }) %>
         </tbody>
