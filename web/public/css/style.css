@@ -205,10 +205,17 @@ form input {
   flex: 1 1 150px;
 }
 
-form button {
-  background: #009688;
-  color: #fff;
-  border: none;
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 37px;
+}
+.stats-button {
+  margin-left: auto;
+}
+#deleteForm button {
+  padding: 6px 12px;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 
@@ -216,9 +223,10 @@ form button:hover {
   opacity: 0.9;
 }
 
-/* formata o botão de exclusão */
 #deleteForm button {
-  margin-bottom: 8px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
 /* aumenta a largura da coluna Sala */
