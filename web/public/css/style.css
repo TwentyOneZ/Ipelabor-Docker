@@ -201,50 +201,19 @@ form button {
   border-radius: 4px;
 }
 
-/* form de deleção dentro de .filters */
-.filters > form#deleteForm {
-  /* força ocupar 100% da largura do cartão */
-  flex: 1 1 100%;
+form input {
+  flex: 1 1 150px;
 }
 
-/* === ESTATÍSTICAS E BOTÃO DE DELETAR === */
-.stats {
-  display: flex;
-  align-items: center;
-  gap: 37px;
-  background: rgba(0,0,0,0.05);
-  padding: 12px;
-  border-radius: 4px;
-  margin: 0;            /* sem margin negativa */
-  width: 100%;
-}
-.stats p {
-  margin: 0;
-  font-weight: 500;
-}
-.stats-button {
-  margin-left: auto;
-}
-#deleteForm button {
-  background: #e91e63;
+form button {
+  background: #009688;
   color: #fff;
   border: none;
-  padding: 8px 16px;
-  font-size: 0.9rem;
   cursor: pointer;
-}
-#deleteForm button:hover {
-  opacity: 0.9;
 }
 
 form button:hover {
   opacity: 0.9;
-}
-
-#deleteForm button {
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  cursor: pointer;
 }
 
 /* aumenta a largura da coluna Sala */

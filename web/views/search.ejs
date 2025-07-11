@@ -3,7 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <title>Ipêlabor - Busca de Atendimentos</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <style>
+        /* --- cartão de filtros --- */
+        .filters {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .filters form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .filters input[type="text"],
+    .filters input[type="date"] {
+      flex: 1 1 150px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .filters button[type="submit"] {
+      background: #009688;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* --- estatísticas dentro do cartão --- */
+    .stats {
+      display: flex;
+      align-items: center;
+      gap: 37px;
+      padding: 12px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+      margin-top: 16px;        /* sem margin negativa! */
+    }
+    .stats p {
+      margin: 0;
+      font-weight: 500;
+    }
+    .stats-button {
+      margin-left: auto;
+    }
+    #deleteForm button {
+      background: #e91e63;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #eee; cursor: pointer; }
+    /* oculta a coluna msgId */
+    #resultsTable td:first-child,
+    #resultsTable th:first-child {
+      display: none;
+    }
+    .stats {
+      display: flex;
+      gap: 37px;
+      padding: 10px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+      margin: -25px 3px 0px 3px;
+    }
+    .stats p { margin: 4px 0px; font-weight: 500; }
+  </style>
   <script>
     // formata células que contenham '*' removendo o asterisco e deixando em negrito
     function formatResults() {
@@ -16,37 +93,33 @@
     }
     document.addEventListener('DOMContentLoaded', formatResults);
   </script>
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-
   <div class="header"></div>
 
-  <!-- cartão de filtros + estatísticas -->
   <div class="filters">
-    <!-- 1) Form de busca -->
-    <form action="/search" method="POST">
-      <input name="name"    placeholder="Nome"      value="<%= filters.name    %>">
-      <input name="empresa" placeholder="Empresa"   value="<%= filters.empresa %>">
-      <input name="sala"    placeholder="Sala"      value="<%= filters.sala    %>">
-      <input name="branch"  placeholder="Local"     value="<%= filters.branch  %>">
-      <input name="caller"  placeholder="Atendente" value="<%= filters.caller  %>">
-      <label>
-        Data Início:
+    <form method="POST" action="/search">
+      <input name="name"    placeholder="Nome"      value="<%= filters.name      %>">
+      <input name="empresa" placeholder="Empresa"   value="<%= filters.empresa   %>">
+      <input name="sala"    placeholder="Sala"      value="<%= filters.sala      %>">
+      <input name="branch"  placeholder="Local"     value="<%= filters.branch    %>">
+      <input name="caller"  placeholder="Atendente" value="<%= filters.caller    %>">
+      <label>Data Início:
         <input name="startDate" type="date" value="<%= filters.startDate %>">
       </label>
-      <label>
-        Data Fim:
+      <label>Data Fim:
         <input name="endDate"   type="date" value="<%= filters.endDate   %>">
       </label>
+      <!-- campos hidden para sort -->
       <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy  %>">
       <input type="hidden" name="sortDir" id="sortDir" value="<%= sorting.sortDir %>">
       <button type="submit">Buscar</button>
     </form>
-
-    <!-- 2) Estatísticas + botão de excluir (só se houver resultados) -->
     <% if (results.length > 0) {
-      const total           = results.length;
-      const uniquePatients  = new Set(results.map(r => r.paciente)).size;
+      // calcula estatísticas
+      const total          = results.length;
+      const uniquePatients = new Set(results.map(r => r.paciente)).size;
       const uniqueCompanies = new Set(results.map(r => r.empresa)).size;
       const parseSec = t => {
         if (!t) return 0;
@@ -60,23 +133,31 @@
         const s = Math.round(sec % 60);
         return `${m}m ${s}s`;
       };
-    %>
-    <form id="deleteForm" action="/delete" method="POST">
+  %>
+  <form id="deleteForm" method="POST" action="/delete">
       <div class="stats">
-        <div><p>Total de entradas:           <strong><%= total %></strong></p></div>
-        <div><p>Pacientes únicos:            <strong><%= uniquePatients %></strong></p></div>
-        <div><p>Empresas únicas:            <strong><%= uniqueCompanies %></strong></p></div>
-        <div><p>Tempo médio de espera:       <strong><%= fmt(avgEsperaSec) %></strong></p></div>
-        <div><p>Tempo médio de atendimento:  <strong><%= fmt(avgDuracaoSec) %></strong></p></div>
+        <div>
+          <p>Total de entradas:    <strong><%= total %></strong></p>
+        </div>
+        <div>
+          <p>Pacientes únicos:     <strong><%= uniquePatients %></strong></p>
+        </div>
+        <div>
+          <p>Empresas únicas:     <strong><%= uniqueCompanies %></strong></p>
+        </div>
+        <div>
+          <p>Tempo médio de espera:   <strong><%= fmt(avgEsperaSec) %></strong></p>
+        </div>
+        <div>
+          <p>Tempo médio de atendimento:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
+        </div>
         <div class="stats-button">
-          <button type="submit">🗑️✅</button>
+          <button type="submit">🗑️ Excluir selecionados</button>
         </div>
       </div>
-    </form>
     <% } %>
-  </div>
+    </div>
 
-  <!-- tabela de resultados -->
   <% if (results.length > 0) { %>
     <div class="results">
       <table id="resultsTable">
@@ -99,50 +180,50 @@
         </thead>
         <tbody>
           <% results.forEach(r => { %>
-          <tr>
-            <td><%= r.msgId         %></td>
-            <td><%= r.paciente      %></td>
-            <td><%= r.empresa       %></td>
-            <td><%= r.sala          %></td>
-            <td><%= r.branch        %></td>
-            <td>
-              <%= r.data instanceof Date
-                  ? r.data.toLocaleDateString('pt-BR')
-                  : r.data %>
-            </td>
-            <td><%= r.hora_registro %></td>
-            <td><%= r.hora_inicio   %></td>
-            <td><%= r.hora_fim      %></td>
-            <td><%= r.espera        %></td>
-            <td><%= r.duracao       %></td>
-            <td><%= r.caller        %></td>
-            <td>
-              <input
-                type="checkbox"
-                name="deleteIds"
-                value="<%= r.msgId %>"
-              >
-            </td>
-          </tr>
+            <tr>
+              <td><%= r.msgId         %></td>
+              <td><%= r.paciente      %></td>
+              <td><%= r.empresa       %></td>
+              <td><%= r.sala          %></td>
+              <td><%= r.branch        %></td>
+              <td>
+                <%= r.data instanceof Date
+                    ? r.data.toLocaleDateString('pt-BR')
+                    : r.data %>
+              </td>
+              <td><%= r.hora_registro %></td>
+              <td><%= r.hora_inicio   %></td>
+              <td><%= r.hora_fim      %></td>
+              <td><%= r.espera        %></td>
+              <td><%= r.duracao       %></td>
+              <td><%= r.caller        %></td>
+              <td>
+                <input
+                  type="checkbox"
+                  name="deleteIds"
+                  value="<%= r.msgId %>"
+                >
+              </td>
+            </tr>
           <% }) %>
         </tbody>
       </table>
-    </div>
-
-    <script>
-      // script de ordenação usa apenas o form de busca
-      const searchForm = document.querySelector('form[action="/search"]');
-      document.querySelectorAll('#resultsTable th').forEach(th => {
-        th.addEventListener('click', () => {
-          const col = th.dataset.column;
-          const dir = th.dataset.dir === 'ASC' ? 'DESC' : 'ASC';
-          document.getElementById('sortBy').value  = col;
-          document.getElementById('sortDir').value = dir;
-          th.dataset.dir = dir;
-          searchForm.submit();
+      <script>
+        // para o form de busca
+        const searchForm = document.querySelector('form[action="/search"]');
+        document.querySelectorAll('#resultsTable th').forEach(th => {
+          th.addEventListener('click', () => {
+            const col = th.dataset.column;
+            const dir = th.dataset.dir === 'ASC' ? 'DESC' : 'ASC';
+            document.getElementById('sortBy').value  = col;
+            document.getElementById('sortDir').value = dir;
+            th.dataset.dir = dir;
+            searchForm.submit();
+          });
         });
-      });
-    </script>
+      </script>
+    </div>
+  </form>
   <% } %>
 
 </body>
