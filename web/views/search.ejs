@@ -97,67 +97,70 @@
 
   <% if (results.length > 0) { %>
     <div class="results">
-      <table id="resultsTable">
-        <thead>
-          <tr>
-            <% 
-              const cols   = ['msgId','paciente','empresa','sala','branch','data','hora_registro','hora_inicio','hora_fim','espera','duracao','caller'];
-              const labels = { branch: 'Local', caller: 'Atendente' };
-            %>
-            <% cols.forEach(col => { %>
-              <th 
-                data-column="<%= col %>" 
-                data-dir="<%= sorting.sortBy === col ? sorting.sortDir : 'DESC' %>"
-              >
-                <%= labels[col] || (col.charAt(0).toUpperCase() + col.slice(1).replace('_',' ')) %>
-              </th>
-            <% }) %>
-            <th>Selecione</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% results.forEach(r => { %>
+      <form id="deleteForm" method="POST" action="/delete">
+        <button type="submit">🗑️</button>
+        <table id="resultsTable">
+          <thead>
             <tr>
-              <td><%= r.msgId         %></td>
-              <td><%= r.paciente      %></td>
-              <td><%= r.empresa       %></td>
-              <td><%= r.sala          %></td>
-              <td><%= r.branch        %></td>
-              <td>
-                <%= r.data instanceof Date
-                    ? r.data.toLocaleDateString('pt-BR')
-                    : r.data %>
-              </td>
-              <td><%= r.hora_registro %></td>
-              <td><%= r.hora_inicio   %></td>
-              <td><%= r.hora_fim      %></td>
-              <td><%= r.espera        %></td>
-              <td><%= r.duracao       %></td>
-              <td><%= r.caller        %></td>
-              <td>
-                <input
-                  type="checkbox"
-                  name="deleteIds"
-                  value="<%= r.msgId %>"
+              <% 
+                const cols   = ['msgId','paciente','empresa','sala','branch','data','hora_registro','hora_inicio','hora_fim','espera','duracao','caller'];
+                const labels = { branch: 'Local', caller: 'Atendente' };
+              %>
+              <% cols.forEach(col => { %>
+                <th 
+                  data-column="<%= col %>" 
+                  data-dir="<%= sorting.sortBy === col ? sorting.sortDir : 'DESC' %>"
                 >
-              </td>
+                  <%= labels[col] || (col.charAt(0).toUpperCase() + col.slice(1).replace('_',' ')) %>
+                </th>
+              <% }) %>
+              <th>✅</th>
             </tr>
-          <% }) %>
-        </tbody>
-      </table>
-      <script>
-        const form = document.querySelector('form');
-        document.querySelectorAll('#resultsTable th').forEach(th => {
-          th.addEventListener('click', () => {
-            const col = th.dataset.column;
-            const dir = th.dataset.dir === 'ASC' ? 'DESC' : 'ASC';
-            document.getElementById('sortBy').value  = col;
-            document.getElementById('sortDir').value = dir;
-            th.dataset.dir = dir;
-            form.submit();
+          </thead>
+          <tbody>
+            <% results.forEach(r => { %>
+              <tr>
+                <td><%= r.msgId         %></td>
+                <td><%= r.paciente      %></td>
+                <td><%= r.empresa       %></td>
+                <td><%= r.sala          %></td>
+                <td><%= r.branch        %></td>
+                <td>
+                  <%= r.data instanceof Date
+                      ? r.data.toLocaleDateString('pt-BR')
+                      : r.data %>
+                </td>
+                <td><%= r.hora_registro %></td>
+                <td><%= r.hora_inicio   %></td>
+                <td><%= r.hora_fim      %></td>
+                <td><%= r.espera        %></td>
+                <td><%= r.duracao       %></td>
+                <td><%= r.caller        %></td>
+                <td>
+                  <input
+                    type="checkbox"
+                    name="deleteIds"
+                    value="<%= r.msgId %>"
+                  >
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <script>
+          const form = document.querySelector('form');
+          document.querySelectorAll('#resultsTable th').forEach(th => {
+            th.addEventListener('click', () => {
+              const col = th.dataset.column;
+              const dir = th.dataset.dir === 'ASC' ? 'DESC' : 'ASC';
+              document.getElementById('sortBy').value  = col;
+              document.getElementById('sortDir').value = dir;
+              th.dataset.dir = dir;
+              form.submit();
+            });
           });
-        });
-      </script>
+        </script>
+      </form>
     </div>
   <% } %>
 
