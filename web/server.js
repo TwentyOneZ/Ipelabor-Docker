@@ -1,5 +1,53 @@
 // server.js
 
+const bcrypt = require('bcrypt'); // adicione no topo do arquivo junto com os outros requires
+
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  // busca o usuário no banco
+  db.query(
+    "SELECT id, username, password_hash, nivel_acesso, restricoes FROM usuarios WHERE username = ? LIMIT 1",
+    [username],
+    async (err, results) => {
+      if (err) {
+        logger.error("Erro ao consultar usuários:", err);
+        req.session.error = "Erro interno.";
+        return res.redirect("/");
+      }
+
+      if (results.length === 0) {
+        // usuário não encontrado
+        req.session.error = "Usuário ou senha inválidos.";
+        return res.redirect("/");
+      }
+
+      const user = results[0];
+
+      try {
+        const match = await bcrypt.compare(password, user.password_hash);
+        if (!match) {
+          req.session.error = "Usuário ou senha inválidos.";
+          return res.redirect("/");
+        }
+
+        // autenticação ok
+        req.session.loggedIn = true;
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.nivelAcesso = user.nivel_acesso;
+        req.session.restricoes = user.restricoes ? JSON.parse(user.restricoes) : null;
+
+        return res.redirect("/search");
+      } catch (bcryptErr) {
+        logger.error("Erro ao comparar hash:", bcryptErr);
+        req.session.error = "Erro interno.";
+        return res.redirect("/");
+      }
+    }
+  );
+});
+
 const express    = require("express");
 const session    = require("express-session");
 const bodyParser = require("body-parser");
@@ -24,8 +72,7 @@ const db = mysql.createConnection({
   database: config.mysql.database
 });
 
-const USER     = "admin";
-const PASSWORD = "q1w2e3";
+
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
