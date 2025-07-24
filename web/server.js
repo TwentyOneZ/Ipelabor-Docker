@@ -1,6 +1,85 @@
 // server.js
 
-const bcrypt = require('bcrypt'); // adicione no topo do arquivo junto com os outros requires
+// 1. Importações
+const express = require("express");
+const session = require("express-session");
+const bodyParser = require("body-parser");
+const path = require("path");
+const mysql = require("mysql2");
+const fs = require("fs");
+const ini = require("ini");
+const bcrypt = require('bcrypt');
+const logger = require('../logger');
+
+// 2. Inicialização do App
+const app = express();
+const PORT = 3000;
+
+// Leitura do config.ini
+const config = ini.parse(
+  fs.readFileSync(path.join(__dirname, "../config.ini"), "utf-8")
+);
+const db = mysql.createConnection({
+  host: config.mysql.host,
+  port: config.mysql.port,
+  user: config.mysql.user,
+  password: config.mysql.password,
+  database: config.mysql.database
+});
+
+
+// 3. Configuração de Middleware
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+app.use(express.static(path.join(__dirname, "public")));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(
+  session({
+    secret: "segredoUltraSeguro",
+    resave: false,
+    saveUninitialized: true
+  })
+);
+
+// --- Funções Auxiliares e de Autenticação ---
+
+function auth(req, res, next) {
+  if (req.session.loggedIn) {
+    // Se o usuário está logado e tentando acessar uma página que não seja de troca de senha
+    // enquanto é forçado a trocar, redirecione-o.
+    if (req.session.forcarTrocaSenha && req.path !== '/trocar-senha') {
+      return res.redirect('/trocar-senha');
+    }
+    return next();
+  }
+  res.redirect("/");
+}
+
+function exigirTrocaSenha(req, res, next) {
+  // Garante que apenas usuários forçados a trocar a senha acessem esta rota
+  if (req.session.forcarTrocaSenha) {
+    return next();
+  }
+  res.redirect("/search");
+}
+
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dt = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dt}`;
+}
+
+// 4. Definição das Rotas
+
+// Rota da página de login
+app.get("/", (req, res) => {
+  const error = req.session.error;
+  delete req.session.error;
+  res.render("login", { error });
+});
+
 
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
@@ -52,60 +131,6 @@ app.post("/login", (req, res) => {
     }
   );
 });
-
-
-const express    = require("express");
-const session    = require("express-session");
-const bodyParser = require("body-parser");
-const path       = require("path");
-const mysql      = require("mysql2");
-const fs         = require("fs");
-const ini        = require("ini");
-const logger     = require('../logger');
-
-const app  = express();
-const PORT = 3000;
-
-// Leitura do config.ini
-const config = ini.parse(
-  fs.readFileSync(path.join(__dirname, "../config.ini"), "utf-8")
-);
-const db = mysql.createConnection({
-  host:     config.mysql.host,
-  port:     config.mysql.port,
-  user:     config.mysql.user,
-  password: config.mysql.password,
-  database: config.mysql.database
-});
-
-
-
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
-app.use(express.static(path.join(__dirname, "public")));
-app.use(bodyParser.urlencoded({ extended: false }));
-
-app.use(
-  session({
-    secret: "segredoUltraSeguro",
-    resave: false,
-    saveUninitialized: true
-  })
-);
-
-function auth(req, res, next) {
-  if (req.session.loggedIn) return next();
-  res.redirect("/");
-}
-
-// helper para data de hoje no formato YYYY-MM-DD
-function todayISO() {
-  const d  = new Date();
-  const y  = d.getFullYear();
-  const m  = String(d.getMonth() + 1).padStart(2, '0');
-  const dt = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dt}`;
-}
 
 // GET / → login page
 app.get("/", (req, res) => {
@@ -238,20 +263,6 @@ app.post("/search", auth, (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  logger.info(`Servidor rodando em http://ipelabor.sytes.net:7000 (http://localhost:${PORT})`);
-});
-
-function auth(req, res, next) {
-  if (req.session.loggedIn) return next();
-  res.redirect("/");
-}
-
-function exigirTrocaSenha(req, res, next) {
-  if (req.session.forcarTrocaSenha) return next();
-  return res.redirect("/search");
-}
-
 app.get("/trocar-senha", auth, exigirTrocaSenha, (req, res) => {
   const error = req.session.error;
   delete req.session.error;
@@ -287,4 +298,9 @@ app.post("/trocar-senha", auth, exigirTrocaSenha, async (req, res) => {
     req.session.error = "Erro interno.";
     return res.redirect("/trocar-senha");
   }
+});
+
+// 5. Inicialização do Servidor
+app.listen(PORT, () => {
+  logger.info(`Servidor web rodando em http://localhost:${PORT}`);
 });
