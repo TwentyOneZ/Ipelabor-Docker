@@ -265,7 +265,8 @@ app.post("/search", auth, (req, res) => {
     res.render("search", {
       results,
       filters: { name, empresa, sala, branch, startDate, endDate, caller },
-      sorting: { sortBy, sortDir }
+      sorting: { sortBy, sortDir },
+      nivelAcesso: req.session.nivelAcesso
     });
   });
 });
