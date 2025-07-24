@@ -11,9 +11,16 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copie o package.json do diretório web e instale as dependências
+COPY web/package*.json ./web/
+WORKDIR /app/web
 RUN npm install
 
+# Volte para o diretório raiz do app e copie o resto
+WORKDIR /app
 COPY . .
+
+# Defina o diretório de trabalho final e o comando
+WORKDIR /app/web
 
 CMD ["node", "server.js"]
