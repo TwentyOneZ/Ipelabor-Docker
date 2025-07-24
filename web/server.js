@@ -308,6 +308,76 @@ app.post("/trocar-senha", auth, exigirTrocaSenha, async (req, res) => {
   }
 });
 
+// Rota para exibir a página "Esqueci minha senha"
+app.get('/esqueci-senha', (req, res) => {
+  res.render('esqueciSenha', { message: null, error: null });
+});
+
+// Rota para processar a solicitação de redefinição de senha
+app.post('/esqueci-senha', async (req, res) => {
+  const { username } = req.body;
+  const [users] = await db.promise().query('SELECT * FROM usuarios WHERE username = ?', [username]);
+
+  if (users.length === 0) {
+    // Por segurança, não informamos que o e-mail não existe
+    return res.render('esqueciSenha', { message: 'Se o e-mail estiver cadastrado, um link de recuperação foi enviado.', error: null });
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiration = new Date();
+  expiration.setHours(expiration.getHours() + 1); // Token expira em 1 hora
+
+  await db.promise().query('UPDATE usuarios SET reset_token = ?, reset_expira = ? WHERE username = ?', [token, expiration, username]);
+
+  try {
+    await sendPasswordResetEmail(username, token);
+    res.render('esqueciSenha', { message: 'Um link de recuperação foi enviado para o seu e-mail.', error: null });
+  } catch (error) {
+    logger.error("Falha ao enviar e-mail de redefinição:", error);
+    res.render('esqueciSenha', { message: null, error: 'Não foi possível enviar o e-mail. Tente novamente mais tarde.' });
+  }
+});
+
+// Rota para exibir a página de redefinição de senha
+app.get('/redefinir-senha', async (req, res) => {
+  const { token } = req.query;
+  const [users] = await db.promise().query('SELECT * FROM usuarios WHERE reset_token = ? AND reset_expira > NOW()', [token]);
+
+  if (users.length === 0) {
+    return res.send('Token de redefinição inválido ou expirado.');
+  }
+
+  res.render('redefinirSenha', { token, error: null });
+});
+
+// Rota para processar a nova senha
+app.post('/redefinir-senha', async (req, res) => {
+  const { token, novaSenha, confirmarSenha } = req.body;
+
+  if (novaSenha !== confirmarSenha) {
+    return res.render('redefinirSenha', { token, error: 'As senhas não coincidem.' });
+  }
+  if (novaSenha.length < 6) {
+    return res.render('redefinirSenha', { token, error: 'A senha deve ter no mínimo 6 caracteres.' });
+  }
+
+  const [users] = await db.promise().query('SELECT * FROM usuarios WHERE reset_token = ? AND reset_expira > NOW()', [token]);
+
+  if (users.length === 0) {
+    return res.send('Token de redefinição inválido ou expirado.');
+  }
+
+  const newPasswordHash = await bcrypt.hash(novaSenha, 10);
+  
+  await db.promise().query(
+    'UPDATE usuarios SET password_hash = ?, senha_temporaria = FALSE, reset_token = NULL, reset_expira = NULL WHERE id = ?',
+    [newPasswordHash, users[0].id]
+  );
+  
+  // Redireciona para o login com uma mensagem de sucesso (opcional)
+  res.redirect('/');
+});
+
 // 5. Inicialização do Servidor
 app.listen(PORT, () => {
   logger.info(`Servidor web rodando em http://localhost:${PORT}`);

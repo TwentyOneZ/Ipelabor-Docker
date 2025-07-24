@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Redefinir Senha</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <h2>Redefinir Senha</h2>
+
+    <% if (error) { %>
+      <div class="flash-error"><%= error %></div>
+    <% } %>
+
+    <form method="POST" action="/redefinir-senha">
+      <input type="hidden" name="token" value="<%= token %>">
+      <input type="password" name="novaSenha" placeholder="Nova Senha" required>
+      <input type="password" name="confirmarSenha" placeholder="Confirmar Nova Senha" required>
+      <button type="submit">Atualizar Senha</button>
+    </form>
+  </div>
+</body>
+</html>

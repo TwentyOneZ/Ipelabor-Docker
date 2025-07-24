@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Recuperar Senha</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <h2>Recuperar Senha</h2>
+    <p>Informe seu e-mail de login para receber o link de redefinição.</p>
+
+    <% if (message) { %>
+      <div class="flash-success"><%= message %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="flash-error"><%= error %></div>
+    <% } %>
+
+    <form method="POST" action="/esqueci-senha">
+      <input type="email" name="username" placeholder="seu-email@ipelabor.com.br" required>
+      <button type="submit">Enviar Link de Recuperação</button>
+    </form>
+  </div>
+</body>
+</html>
