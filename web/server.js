@@ -2,8 +2,6 @@
 
 const bcrypt = require('bcrypt'); // adicione no topo do arquivo junto com os outros requires
 
-const bcrypt = require('bcrypt');
-
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
