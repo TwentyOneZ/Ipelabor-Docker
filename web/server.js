@@ -10,6 +10,7 @@ const fs = require("fs");
 const ini = require("ini");
 const bcrypt = require('bcrypt');
 const logger = require('./logger');
+const crypto = require('crypto');
 
 // 2. Inicialização do App
 const app = express();
