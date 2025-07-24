@@ -16,11 +16,16 @@ RUN apt-get update && \
 
 WORKDIR /app/web
 
-# Copia apenas o package.json para aproveitar o cache do Docker
+# 1. Copia PRIMEIRO os arquivos de definição de pacotes
+# O asterisco (*) garante que ele copie o package-lock.json se existir
 COPY ./web/package*.json ./
+
+# 2. Instala as dependências
+# Como este passo vem antes de copiar o resto do código, o Docker usará o cache
+# desta camada se o package.json não tiver mudado, acelerando builds futuros.
 RUN npm install
 
-# Copia o resto da aplicação web
+# 3. Copia o restante do código da aplicação web
 COPY ./web .
 
 CMD ["node", "server.js"]
