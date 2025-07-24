@@ -45,25 +45,25 @@ services:
     command: ["node", "index.js"]
     restart: unless-stopped
 
-web:
-  build:
-    context: .
-    dockerfile: ./web/Dockerfile
-  depends_on:
-    - mysql
-  ports:
-    - "7000:3000"
-  environment:
-    TZ: America/Sao_Paulo       # <-- define o fuso
-  volumes:
-    # Mapeia apenas os arquivos necessários, evitando sobrescrever o node_modules
-    - ./web:/app/web
-    - ./config.ini:/app/config.ini
-    # Adiciona um volume anônimo para persistir o node_modules
-    - /app/web/node_modules
-  working_dir: /app/web
-  command: node server.js
-  restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: ./web/Dockerfile
+    depends_on:
+      - mysql
+    ports:
+      - "7000:3000"
+    environment:
+      TZ: America/Sao_Paulo       # <-- define o fuso
+    volumes:
+      # Mapeia apenas os arquivos necessários, evitando sobrescrever o node_modules
+      - ./web:/app/web
+      - ./config.ini:/app/config.ini
+      # Adiciona um volume anônimo para persistir o node_modules
+      - /app/web/node_modules
+    working_dir: /app/web
+    command: node server.js
+    restart: unless-stopped
 
 volumes:
   mysql_data:
