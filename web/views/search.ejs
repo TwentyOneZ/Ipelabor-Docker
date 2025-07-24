@@ -151,9 +151,11 @@
         <div>
           <p>Tempo médio de atendimento:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
         </div>
+        <% if (nivelAcesso === 'admin') { %>
         <div class="stats-button">
           <button type="submit">🗑️✅</button>
         </div>
+        <% } %>
       </div>
     <% } %>
     </div>
@@ -175,7 +177,9 @@
                 <%= labels[col] || (col.charAt(0).toUpperCase() + col.slice(1).replace('_',' ')) %>
               </th>
             <% }) %>
+            <% if (nivelAcesso === 'admin') { %>
             <th>✅</th>
+            <% } %>
           </tr>
         </thead>
         <tbody>
@@ -197,6 +201,7 @@
               <td><%= r.espera        %></td>
               <td><%= r.duracao       %></td>
               <td><%= r.caller        %></td>
+              <% if (nivelAcesso === 'admin') { %>
               <td>
                 <input
                   type="checkbox"
@@ -204,6 +209,7 @@
                   value="<%= r.msgId %>"
                 >
               </td>
+              <% } %>
             </tr>
           <% }) %>
         </tbody>

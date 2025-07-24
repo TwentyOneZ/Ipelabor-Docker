@@ -165,7 +165,8 @@ app.get("/search", auth, (req, res) => {
       startDate: hoje,
       endDate:   hoje
     },
-    sorting: { sortBy: "data", sortDir: "DESC" }
+    sorting: { sortBy: "data", sortDir: "DESC" },
+    nivelAcesso: req.session.nivelAcesso
   });
 });
 
@@ -182,6 +183,12 @@ app.post("/search", auth, (req, res) => {
 
   // POST /delete → exclui seleções
   app.post("/delete", auth, (req, res) => {
+    if (req.session.nivelAcesso !== 'admin') {
+      logger.warn(`Tentativa de exclusão não autorizada pelo usuário: ${req.session.username}`);
+      // Apenas redireciona de volta, sem dar feedback do erro
+      return res.redirect("/search");
+    }
+
     let { deleteIds } = req.body;
     if (!deleteIds) {
       return res.redirect("/search");
