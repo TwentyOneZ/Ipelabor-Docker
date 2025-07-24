@@ -334,8 +334,20 @@ app.post('/esqueci-senha', async (req, res) => {
     await sendPasswordResetEmail(username, token);
     res.render('esqueciSenha', { message: 'Um link de recuperação foi enviado para o seu e-mail.', error: null });
   } catch (error) {
-    logger.error("Falha ao enviar e-mail de redefinição:", error);
-    res.render('esqueciSenha', { message: null, error: 'Não foi possível enviar o e-mail. Tente novamente mais tarde.' });
+    // --- SUBSTITUA SEU BLOCO CATCH POR ESTE ---
+    console.log('--- DEBUG INICIADO: OCORREU UM ERRO NO ENVIO DE EMAIL ---');
+    console.log('Tipo do erro:', typeof error);
+    console.log('Erro como string:', String(error));
+    console.log('Erro como JSON:', JSON.stringify(error, null, 2));
+    logger.error({
+        msg: "Detalhes do erro de envio de e-mail capturado",
+        err: error,
+        stack: error ? error.stack : 'Nenhum stack disponível'
+    });
+    console.log('--- DEBUG FINALIZADO ---');
+    
+    res.render('esqueciSenha', { message: null, error: 'Não foi possível enviar o e-mail. Contate o administrador.' });
+    // ---------------------------------------------
   }
 });
 
