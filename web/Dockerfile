@@ -28,6 +28,4 @@ RUN npm install
 # 3. Copia o restante do código da aplicação web
 COPY ./web .
 
-RUN npm install nodemailer
-
 CMD ["node", "server.js"]
