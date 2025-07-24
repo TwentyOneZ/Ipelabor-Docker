@@ -21,13 +21,13 @@ const PORT = 3000;
 const config = ini.parse(
   fs.readFileSync(path.join(__dirname, "../config.ini"), "utf-8")
 );
-const db = mysql.createConnection({
+const db = mysql.createPool({
   host: config.mysql.host,
   port: config.mysql.port,
   user: config.mysql.user,
   password: config.mysql.password,
   database: config.mysql.database
-});
+}).promise();
 
 
 // 3. Configuração de Middleware
@@ -83,75 +83,49 @@ app.get("/", (req, res) => {
 });
 
 
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => { 
   const { username, password } = req.body;
 
-  db.query(
-    "SELECT id, username, password_hash, nivel_acesso, restricoes, senha_temporaria, empresa FROM usuarios WHERE username = ? LIMIT 1",
-    [username],
-    async (err, results) => {
-      if (err) {
-        logger.error("Erro ao consultar usuários:", err);
-        req.session.error = "Erro interno.";
-        return res.redirect("/");
-      }
+  try {
+    // Use try/catch para erros e await para o resultado
+    const [results] = await db.query( // Mude para await db.query()
+      "SELECT id, username, password_hash, nivel_acesso, restricoes, senha_temporaria, empresa FROM usuarios WHERE username = ? LIMIT 1",
+      [username]
+    );
 
-      if (results.length === 0) {
-        req.session.error = "Usuário ou senha inválidos.";
-        return res.redirect("/");
-      }
-
-      const user = results[0];
-
-      try {
-        const match = await bcrypt.compare(password, user.password_hash);
-        if (!match) {
-          req.session.error = "Usuário ou senha inválidos.";
-          return res.redirect("/");
-        }
-
-        // Login OK → configura sessão
-        req.session.loggedIn = true;
-        req.session.userId = user.id;
-        req.session.username = user.username;
-        req.session.nivelAcesso = user.nivel_acesso;
-        req.session.restricoes = user.restricoes ? JSON.parse(user.restricoes) : null;
-        req.session.empresa = user.empresa || null;
-
-        // Se senha é temporária → força troca
-        if (user.senha_temporaria) {
-          req.session.forcarTrocaSenha = true;
-          return res.redirect("/trocar-senha");
-        }
-
-        return res.redirect("/search");
-      } catch (bcryptErr) {
-        logger.error("Erro ao comparar senha:", bcryptErr);
-        req.session.error = "Erro interno.";
-        return res.redirect("/");
-      }
+    if (results.length === 0) {
+      req.session.error = "Usuário ou senha inválidos.";
+      return res.redirect("/");
     }
-  );
-});
 
-// GET / → login page
-app.get("/", (req, res) => {
-  // lê e apaga a mensagem de erro (flash)
-  const error = req.session.error;
-  delete req.session.error;
+    const user = results[0];
+    const match = await bcrypt.compare(password, user.password_hash);
+    
+    if (!match) {
+      req.session.error = "Usuário ou senha inválidos.";
+      return res.redirect("/");
+    }
 
-  res.render("login", { error });
-});
-
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-  if (username === USER && password === PASSWORD) {
+    // Login OK → configura sessão
     req.session.loggedIn = true;
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.nivelAcesso = user.nivel_acesso;
+    req.session.restricoes = user.restricoes ? JSON.parse(user.restricoes) : null;
+    req.session.empresa = user.empresa || null;
+
+    if (user.senha_temporaria) {
+      req.session.forcarTrocaSenha = true;
+      return res.redirect("/trocar-senha");
+    }
+
     return res.redirect("/search");
+
+  } catch (err) {
+    logger.error("Erro no processo de login:", err);
+    req.session.error = "Erro interno.";
+    return res.redirect("/");
   }
-  // falhou: guarda mensagem de erro e redireciona
-  req.session.error = "Credenciais inválidas.";
-  res.redirect("/");
 });
 
 app.get("/search", auth, (req, res) => {
@@ -172,7 +146,7 @@ app.get("/search", auth, (req, res) => {
   });
 });
 
-app.post("/search", auth, (req, res) => {
+app.post("/search", auth, async (req, res) => {
   const {
     name      = '',
     empresa   = '',
@@ -183,50 +157,21 @@ app.post("/search", auth, (req, res) => {
     endDate   = ''
   } = req.body;
 
-  // POST /delete → exclui seleções
-  app.post("/delete", auth, (req, res) => {
-    if (req.session.nivelAcesso !== 'admin') {
-      logger.warn(`Tentativa de exclusão não autorizada pelo usuário: ${req.session.username}`);
-      // Apenas redireciona de volta, sem dar feedback do erro
-      return res.redirect("/search");
-    }
+  try {
+    const filtrosParaLog = { name, empresa, sala, branch, caller, startDate, endDate };
+    const usernameLog = req.session.username; // Pega o username da sessão
 
-    let { deleteIds } = req.body;
-    if (!deleteIds) {
-      return res.redirect("/search");
-    }
-    // garante array
-    if (!Array.isArray(deleteIds)) {
-      deleteIds = [ deleteIds ];
-    }
-    // 1) apaga de atendimentos
-    db.query(
-      "DELETE FROM atendimentos WHERE msgId IN (?)",
-      [ deleteIds ],
-      (err) => {
-        if (err) {
-          logger.error("Erro ao excluir atendimentos:", err);
-          return res.status(500).send("Erro ao excluir atendimentos.");
-        }
-        // 2) apaga de messages
-        db.query(
-          "DELETE FROM messages WHERE msgId IN (?)",
-          [ deleteIds ],
-          (err2) => {
-            if (err2) {
-              logger.error("Erro ao excluir messages:", err2);
-              return res.status(500).send("Erro ao excluir mensagens.");
-            }
-            // redireciona mantendo filtros zerados (ou você pode levar via querystring)
-            res.redirect("/search");
-          }
-        );
-      }
-    );
-  });
+    const logSql = "INSERT INTO log_buscas (username, filtros) VALUES (?, ?)";
+    db.query(logSql, [usernameLog, JSON.stringify(filtrosParaLog)]);
+    
+  } catch (logError) {
+    logger.error("Falha ao registrar log da busca:", logError);
+  }
   
-  const sortBy  = req.body.sortBy  || 'data';
-  const sortDir = req.body.sortDir === 'ASC' ? 'ASC' : 'DESC';
+  
+  const allowedSortColumns = ['msgId', 'paciente', 'empresa', 'sala', 'branch', 'data', 'caller'];
+  const sortBy  = allowedSortColumns.includes(req.body.sortBy) ? req.body.sortBy : 'data'; // Usa o valor apenas se for seguro
+  const sortDir = req.body.sortDir === 'ASC' ? 'ASC' : 'DESC'; // Boa prática já implementada
 
   const clauses = [];
   const params  = [];
@@ -259,18 +204,60 @@ app.post("/search", auth, (req, res) => {
     ORDER BY \`${sortBy}\` ${sortDir}
   `;
 
-  db.query(sql, params, (err, results) => {
-    if (err) {
-      logger.error(err);
-      return res.status(500).send("Erro no banco de dados.");
-    }
+  try {
+    const [results] = await db.query(sql, params); // Mudar para await
     res.render("search", {
       results,
       filters: { name, empresa, sala, branch, startDate, endDate, caller },
       sorting: { sortBy, sortDir },
       nivelAcesso: req.session.nivelAcesso
     });
-  });
+  } catch (err) {
+    logger.error("Erro na busca do banco de dados:", err);
+    return res.status(500).send("Erro no banco de dados.");
+  }
+});
+
+// Rota para deletar entradas
+app.post("/delete", auth, async (req, res) => {
+  if (req.session.nivelAcesso !== 'admin') {
+    logger.warn(`Tentativa de exclusão não autorizada pelo usuário: ${req.session.username}`);
+    return res.redirect("/search");
+  }
+
+  let { deleteIds } = req.body;
+  if (!deleteIds) {
+    return res.redirect("/search");
+  }
+
+  if (!Array.isArray(deleteIds)) {
+    deleteIds = [deleteIds];
+  }
+
+  try {
+    // CORREÇÃO: Removido o .promise()
+    const [rowsToDelete] = await db.query("SELECT * FROM atendimentos WHERE msgId IN (?)", [deleteIds]);
+
+    if (rowsToDelete.length > 0) {
+      const dadosRemovidosString = JSON.stringify(rowsToDelete);
+      // CORREÇÃO: Removido o .promise()
+      await db.query(
+        'INSERT INTO log_deletes (username, dados_removidos) VALUES (?, ?)',
+        [req.session.username, dadosRemovidosString]
+      );
+    }
+    
+    // CORREÇÃO: Removido o .promise()
+    await db.query("DELETE FROM atendimentos WHERE msgId IN (?)", [deleteIds]);
+    // CORREÇÃO: Removido o .promise()
+    await db.query("DELETE FROM messages WHERE msgId IN (?)", [deleteIds]);
+    
+    res.redirect("/search");
+
+  } catch (err) {
+    logger.error("Erro no processo de exclusão:", err);
+    return res.status(500).send("Erro ao excluir registros.");
+  }
 });
 
 app.get("/trocar-senha", auth, exigirTrocaSenha, (req, res) => {
@@ -289,23 +276,20 @@ app.post("/trocar-senha", auth, exigirTrocaSenha, async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(novaSenha, 10);
-    db.query(
+    
+    // Mudar para await
+    await db.query(
       "UPDATE usuarios SET password_hash = ?, senha_temporaria = FALSE WHERE id = ?",
-      [hash, req.session.userId],
-      (err) => {
-        if (err) {
-          logger.error("Erro ao atualizar senha:", err);
-          req.session.error = "Erro interno.";
-          return res.redirect("/trocar-senha");
-        }
-
-        req.session.forcarTrocaSenha = false;
-        res.redirect("/search");
-      }
+      [hash, req.session.userId]
     );
+
+    req.session.forcarTrocaSenha = false;
+    res.redirect("/search");
+    
   } catch (err) {
-    logger.error("Erro no hash da nova senha:", err);
-    req.session.error = "Erro interno.";
+    // Note que o bcrypt.hash também pode dar erro, então o catch agora cobre ambos
+    logger.error("Erro ao trocar senha:", err);
+    req.session.error = "Erro interno ao processar sua solicitação.";
     return res.redirect("/trocar-senha");
   }
 });
@@ -318,7 +302,7 @@ app.get('/esqueci-senha', (req, res) => {
 // Rota para processar a solicitação de redefinição de senha
 app.post('/esqueci-senha', async (req, res) => {
   const { username } = req.body;
-  const [users] = await db.promise().query('SELECT * FROM usuarios WHERE username = ?', [username]);
+  const [users] = await db.query('SELECT * FROM usuarios WHERE username = ?', [username]);
 
   if (users.length === 0) {
     // Por segurança, não informamos que o e-mail não existe
@@ -329,17 +313,13 @@ app.post('/esqueci-senha', async (req, res) => {
   const expiration = new Date();
   expiration.setHours(expiration.getHours() + 1); // Token expira em 1 hora
 
-  await db.promise().query('UPDATE usuarios SET reset_token = ?, reset_expira = ? WHERE username = ?', [token, expiration, username]);
+  await db.query('UPDATE usuarios SET reset_token = ?, reset_expira = ? WHERE username = ?', [token, expiration, username]);
 
   try {
     await sendPasswordResetEmail(username, token);
     res.render('esqueciSenha', { message: 'Um link de recuperação foi enviado para o seu e-mail.', error: null });
   } catch (error) {
     // --- SUBSTITUA SEU BLOCO CATCH POR ESTE ---
-    console.log('--- DEBUG INICIADO: OCORREU UM ERRO NO ENVIO DE EMAIL ---');
-    console.log('Tipo do erro:', typeof error);
-    console.log('Erro como string:', String(error));
-    console.log('Erro como JSON:', JSON.stringify(error, null, 2));
     logger.error({
         msg: "Detalhes do erro de envio de e-mail capturado",
         err: error,
@@ -355,7 +335,7 @@ app.post('/esqueci-senha', async (req, res) => {
 // Rota para exibir a página de redefinição de senha
 app.get('/redefinir-senha', async (req, res) => {
   const { token } = req.query;
-  const [users] = await db.promise().query('SELECT * FROM usuarios WHERE reset_token = ? AND reset_expira > NOW()', [token]);
+  const [users] = await db.query('SELECT * FROM usuarios WHERE reset_token = ? AND reset_expira > NOW()', [token]);
 
   if (users.length === 0) {
     return res.send('Token de redefinição inválido ou expirado.');
@@ -375,7 +355,7 @@ app.post('/redefinir-senha', async (req, res) => {
     return res.render('redefinirSenha', { token, error: 'A senha deve ter no mínimo 6 caracteres.' });
   }
 
-  const [users] = await db.promise().query('SELECT * FROM usuarios WHERE reset_token = ? AND reset_expira > NOW()', [token]);
+  const [users] = await db.query('SELECT * FROM usuarios WHERE reset_token = ? AND reset_expira > NOW()', [token]);
 
   if (users.length === 0) {
     return res.send('Token de redefinição inválido ou expirado.');
@@ -383,7 +363,7 @@ app.post('/redefinir-senha', async (req, res) => {
 
   const newPasswordHash = await bcrypt.hash(novaSenha, 10);
   
-  await db.promise().query(
+  await db.query(
     'UPDATE usuarios SET password_hash = ?, senha_temporaria = FALSE, reset_token = NULL, reset_expira = NULL WHERE id = ?',
     [newPasswordHash, users[0].id]
   );
@@ -394,5 +374,5 @@ app.post('/redefinir-senha', async (req, res) => {
 
 // 5. Inicialização do Servidor
 app.listen(PORT, () => {
-  logger.info(`Servidor web rodando em http://localhost:${PORT}`);
+  logger.info(`Servidor web rodando em http://localhost:${PORT} (ou http://ipelabor.sytes.net:7000)`);
 });

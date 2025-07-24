@@ -38,3 +38,20 @@ CREATE TABLE usuarios (
   reset_token VARCHAR(255) DEFAULT NULL,
   reset_expira DATETIME DEFAULT NULL
 );
+
+-- Adicione este bloco ao final do seu arquivo init.sql
+
+CREATE TABLE IF NOT EXISTS log_buscas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(255) NOT NULL,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  filtros TEXT,
+  INDEX idx_audit_username (username)
+);
+
+CREATE TABLE IF NOT EXISTS log_deletes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(255),
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  dados_removidos TEXT
+);
