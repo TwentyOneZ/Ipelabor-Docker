@@ -9,7 +9,7 @@ const mysql = require("mysql2");
 const fs = require("fs");
 const ini = require("ini");
 const bcrypt = require('bcrypt');
-const logger = require('../logger');
+const logger = require('./logger');
 
 // 2. Inicialização do App
 const app = express();
