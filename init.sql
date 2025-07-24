@@ -53,5 +53,6 @@ CREATE TABLE IF NOT EXISTS log_deletes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(255),
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-  dados_removidos TEXT
+  dados_removidos TEXT,
+  INDEX idx_audit_username (username)
 );
