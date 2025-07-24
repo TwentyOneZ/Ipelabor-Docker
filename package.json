@@ -1,7 +1,7 @@
 {
-  "name": "whatsapp-atendimento",
+  "name": "atendimento-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Serviço de bot para atendimento via WhatsApp",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -10,17 +10,14 @@
   "dependencies": {
     "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "^6.17.16",
-    "body-parser": "^2.2.0",
-    "csv-writer": "^1.6.0",
-    "ejs": "^3.1.10",
-    "express": "^5.1.0",
-    "express-session": "^1.18.1",
     "ini": "^4.1.1",
     "mqtt": "^5.10.4",
     "mysql2": "^3.5.2",
     "pino": "^8.21.0",
     "pino-pretty": "^13.0.0",
-    "qrcode-terminal": "^0.12.0",
-    "bcrypt": "^5.1.1"
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "csv-writer": "^1.6.0"
   }
 }

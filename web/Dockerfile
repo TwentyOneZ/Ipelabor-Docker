@@ -1,26 +1,26 @@
 FROM node:20
 
-# instala tzdata
+# Instala todas as dependências do sistema em uma única camada
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata && \
+    apt-get install -y --no-install-recommends \
+      tzdata \
+      python3 \
+      make \
+      g++ && \
+    # Configura o fuso horário
     ln -snf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime && \
     echo "America/Sao_Paulo" > /etc/timezone && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    # Limpa o cache para reduzir o tamanho da imagem
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copie o package.json do diretório web e instale as dependências
-COPY web/package*.json ./web/
 WORKDIR /app/web
+
+# Copia apenas o package.json para aproveitar o cache do Docker
+COPY ./web/package*.json ./
 RUN npm install
 
-# Volte para o diretório raiz do app e copie o resto
-WORKDIR /app
-COPY . .
-
-# Defina o diretório de trabalho final e o comando
-WORKDIR /app/web
+# Copia o resto da aplicação web
+COPY ./web .
 
 CMD ["node", "server.js"]

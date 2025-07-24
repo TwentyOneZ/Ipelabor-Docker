@@ -1,20 +1,20 @@
 FROM node:20-slim
 
-# instala tzdata
+# Instala apenas o tzdata, que é útil para logs e operações com data/hora
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata && \
+    apt-get install -y --no-install-recommends tzdata && \
     ln -snf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime && \
     echo "America/Sao_Paulo" > /etc/timezone && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# O npm install agora será mais rápido e não precisará de ferramentas de build
 COPY package*.json ./
-RUN npm install
+RUN npm install --omit=dev
 
 COPY . .
 
-CMD ["node", "src/index.js"]
-
+# Comando final (ajustado para bater com o docker-compose.yml)
+CMD ["node", "index.js"]
