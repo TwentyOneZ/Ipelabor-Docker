@@ -1,5 +1,61 @@
 // server.js
 
+const bcrypt = require('bcrypt'); // adicione no topo do arquivo junto com os outros requires
+
+const bcrypt = require('bcrypt');
+
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  db.query(
+    "SELECT id, username, password_hash, nivel_acesso, restricoes, senha_temporaria, empresa FROM usuarios WHERE username = ? LIMIT 1",
+    [username],
+    async (err, results) => {
+      if (err) {
+        logger.error("Erro ao consultar usuários:", err);
+        req.session.error = "Erro interno.";
+        return res.redirect("/");
+      }
+
+      if (results.length === 0) {
+        req.session.error = "Usuário ou senha inválidos.";
+        return res.redirect("/");
+      }
+
+      const user = results[0];
+
+      try {
+        const match = await bcrypt.compare(password, user.password_hash);
+        if (!match) {
+          req.session.error = "Usuário ou senha inválidos.";
+          return res.redirect("/");
+        }
+
+        // Login OK → configura sessão
+        req.session.loggedIn = true;
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.nivelAcesso = user.nivel_acesso;
+        req.session.restricoes = user.restricoes ? JSON.parse(user.restricoes) : null;
+        req.session.empresa = user.empresa || null;
+
+        // Se senha é temporária → força troca
+        if (user.senha_temporaria) {
+          req.session.forcarTrocaSenha = true;
+          return res.redirect("/trocar-senha");
+        }
+
+        return res.redirect("/search");
+      } catch (bcryptErr) {
+        logger.error("Erro ao comparar senha:", bcryptErr);
+        req.session.error = "Erro interno.";
+        return res.redirect("/");
+      }
+    }
+  );
+});
+
+
 const express    = require("express");
 const session    = require("express-session");
 const bodyParser = require("body-parser");
@@ -24,8 +80,7 @@ const db = mysql.createConnection({
   database: config.mysql.database
 });
 
-const USER     = "admin";
-const PASSWORD = "q1w2e3";
+
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -187,4 +242,51 @@ app.post("/search", auth, (req, res) => {
 
 app.listen(PORT, () => {
   logger.info(`Servidor rodando em http://ipelabor.sytes.net:7000 (http://localhost:${PORT})`);
+});
+
+function auth(req, res, next) {
+  if (req.session.loggedIn) return next();
+  res.redirect("/");
+}
+
+function exigirTrocaSenha(req, res, next) {
+  if (req.session.forcarTrocaSenha) return next();
+  return res.redirect("/search");
+}
+
+app.get("/trocar-senha", auth, exigirTrocaSenha, (req, res) => {
+  const error = req.session.error;
+  delete req.session.error;
+  res.render("trocarSenha", { error });
+});
+
+app.post("/trocar-senha", auth, exigirTrocaSenha, async (req, res) => {
+  const { novaSenha } = req.body;
+
+  if (!novaSenha || novaSenha.length < 6) {
+    req.session.error = "A senha deve ter ao menos 6 caracteres.";
+    return res.redirect("/trocar-senha");
+  }
+
+  try {
+    const hash = await bcrypt.hash(novaSenha, 10);
+    db.query(
+      "UPDATE usuarios SET password_hash = ?, senha_temporaria = FALSE WHERE id = ?",
+      [hash, req.session.userId],
+      (err) => {
+        if (err) {
+          logger.error("Erro ao atualizar senha:", err);
+          req.session.error = "Erro interno.";
+          return res.redirect("/trocar-senha");
+        }
+
+        req.session.forcarTrocaSenha = false;
+        res.redirect("/search");
+      }
+    );
+  } catch (err) {
+    logger.error("Erro no hash da nova senha:", err);
+    req.session.error = "Erro interno.";
+    return res.redirect("/trocar-senha");
+  }
 });

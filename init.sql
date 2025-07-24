@@ -29,12 +29,12 @@ CREATE TABLE IF NOT EXISTS atendimentos (
 
 CREATE TABLE usuarios (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(50) NOT NULL UNIQUE,
+  username VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  nivel_acesso TINYINT NOT NULL CHECK (nivel_acesso IN (1,2,3)),
-  restricoes JSON NULL, -- usado apenas se nível_acesso = 3
-  reset_token VARCHAR(100) NULL,
-  reset_expires DATETIME NULL,
-  criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  nivel_acesso ENUM('admin', 'colaborador', 'empresa') NOT NULL DEFAULT 'colaborador',
+  empresa VARCHAR(255) DEFAULT NULL, -- só será usado se nivel_acesso = 'empresa'
+  restricoes TEXT DEFAULT NULL,
+  senha_temporaria BOOLEAN DEFAULT TRUE,
+  reset_token VARCHAR(255) DEFAULT NULL,
+  reset_expira DATETIME DEFAULT NULL
+);

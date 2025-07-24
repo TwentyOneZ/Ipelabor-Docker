@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Trocar Senha</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .troca-container {
+      max-width: 320px;
+      margin: 80px auto;
+      padding: 24px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+    }
+    .troca-container h2 {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .troca-container input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+    }
+    .troca-container button {
+      width: 100%;
+      padding: 8px;
+    }
+    .flash-error {
+      background: #ffcdd2;
+      color: #b71c1c;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="troca-container">
+    <h2>Trocar Senha</h2>
+    <% if (error) { %>
+      <div class="flash-error"><%= error %></div>
+    <% } %>
+    <form method="POST" action="/trocar-senha">
+      <input type="password" name="novaSenha" placeholder="Nova Senha" required>
+      <button type="submit">Atualizar Senha</button>
+    </form>
+  </div>
+</body>
+</html>
