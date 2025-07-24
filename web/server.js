@@ -11,6 +11,7 @@ const ini = require("ini");
 const bcrypt = require('bcrypt');
 const logger = require('./logger');
 const crypto = require('crypto');
+const { sendPasswordResetEmail } = require('./email'); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
 
 // 2. Inicialização do App
 const app = express();
