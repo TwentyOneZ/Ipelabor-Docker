@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendPasswordResetEmail(to, token) {
-  const resetLink = `http://localhost:7000/redefinir-senha?token=${token}`;
+  const resetLink = `http://ipelabor.sytes.net:7000/redefinir-senha?token=${token}`;
   
   const mailOptions = {
     from: `"Sistema Ipêlabor" <${config.smtp.user}>`,
