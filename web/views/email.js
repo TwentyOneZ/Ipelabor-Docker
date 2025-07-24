@@ -1,6 +1,6 @@
 // web/email.js
 const nodemailer = require('nodemailer');
-const config = require('./config'); // Usará o config.ini
+const config = require('../config'); // Usará o config.ini
 
 // ATENÇÃO: Adicione uma seção [smtp] ao seu arquivo config.ini
 const transporter = nodemailer.createTransport({
