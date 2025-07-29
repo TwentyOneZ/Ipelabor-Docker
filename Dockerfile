@@ -2,7 +2,7 @@ FROM node:20-slim
 
 # Instala apenas o tzdata, que é útil para logs e operações com data/hora
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tzdata && \
+    apt-get install -y --no-install-recommends tzdata git && \
     ln -snf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime && \
     echo "America/Sao_Paulo" > /etc/timezone && \
     apt-get clean && \
