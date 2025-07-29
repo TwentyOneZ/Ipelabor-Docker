@@ -12,6 +12,10 @@ WORKDIR /app
 
 # O npm install agora será mais rápido e não precisará de ferramentas de build
 COPY package*.json ./
+
+# Isso evita a necessidade do openssh-client.
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
 RUN npm install --omit=dev
 
 COPY . .
