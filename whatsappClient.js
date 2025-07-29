@@ -1,14 +1,15 @@
 // whatsappClient.js
 
-const makeWASocket = require('@whiskeysockets/baileys').default;
+const makeWASocket = require('baileys').default;
 const {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore
-} = require('@whiskeysockets/baileys');
+} = require('baileys');
 const logger = require('./logger');
 const { Boom } = require('@hapi/boom');
-const { DisconnectReason } = require('@whiskeysockets/baileys');
+const { DisconnectReason } = require('baileys');
+const qrcode = require('qrcode-terminal');
 const { handleIncomingMessages } = require('./handlers');
 
 let sock = null;
@@ -26,7 +27,6 @@ async function connectWhatsApp() {
   sock = makeWASocket({
     version,
     logger: baileysLogger,
-    printQRInTerminal: true,
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, logger),
@@ -40,7 +40,10 @@ async function connectWhatsApp() {
     // Atualização da conexão
     if (events['connection.update']) {
       const { connection, lastDisconnect, qr } = events['connection.update'];
-      if (qr) logger.info('📲 Escaneie o QR Code no app');
+      if (qr) { 
+        qrcode.generate(qr, { small: true });
+        logger.info('📲 Escaneie o QR Code acima para conectar.');  
+      }
       if (connection === 'open') {
         logger.info('✅ WhatsApp conectado!');
       }
