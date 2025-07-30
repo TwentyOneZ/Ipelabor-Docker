@@ -55,7 +55,7 @@ services:
       - "7000:3000"
     environment:
       TZ: America/Sao_Paulo       # <-- define o fuso
-    volumes:
+    # volumes:
       # # Mapeia apenas os arquivos necessários, evitando sobrescrever o node_modules
       # - ./web:/app/web # Mapeia o diretório web
       # - ./config.ini:/app/config.ini # Mapeia o config.ini
