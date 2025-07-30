@@ -12,6 +12,7 @@ const bcrypt = require('bcrypt');
 const logger = require('./logger');
 const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('./email'); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+const XLSX = require('xlsx');
 
 // 2. Inicialização do App
 const app = express();
@@ -215,6 +216,92 @@ app.post("/search", auth, async (req, res) => {
   } catch (err) {
     logger.error("Erro na busca do banco de dados:", err);
     return res.status(500).send("Erro no banco de dados.");
+  }
+});
+
+app.get("/export", auth, async (req, res) => {
+  // 1. Pega os mesmos filtros da busca, mas via req.query
+  const {
+      name = '',
+      empresa = '',
+      sala = '',
+      branch = '',
+      caller = '',
+      startDate = '',
+      endDate = ''
+  } = req.query;
+
+  // 2. Monta a query SQL (lógica idêntica à da busca)
+  const clauses = [];
+  const params = [];
+  if (name) { clauses.push("paciente LIKE ?"); params.push(`%${name}%`); }
+  if (empresa) { clauses.push("empresa LIKE ?"); params.push(`%${empresa}%`); }
+  if (sala) { clauses.push("sala LIKE ?"); params.push(`%${sala}%`); }
+  if (branch) { clauses.push("branch LIKE ?"); params.push(`%${branch}%`); }
+  if (caller) { clauses.push("caller LIKE ?"); params.push(`%${caller}%`); }
+  if (startDate) { clauses.push("data >= ?"); params.push(startDate); }
+  if (endDate) { clauses.push("data <= ?"); params.push(endDate); }
+
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const sql = `
+    SELECT paciente, empresa, sala, branch, data, hora_registro, hora_inicio, hora_fim, espera, duracao, caller
+    FROM atendimentos
+    ${where}
+    ORDER BY data DESC, hora_registro DESC
+  `;
+
+  try {
+      const [results] = await db.query(sql, params);
+
+      // 3. Prepara os dados para o XLSX
+      const dataForSheet = results.map(r => {
+          // Formata a data para o padrão brasileiro
+          const dataFormatada = r.data ? new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
+          return {
+              'Paciente': r.paciente,
+              'Empresa': r.empresa,
+              'Sala': r.sala,
+              'Local': r.branch,
+              'Data': dataFormatada,
+              'Registro': r.hora_registro,
+              'Início': r.hora_inicio,
+              'Fim': r.hora_fim,
+              'Espera': r.espera,
+              'Duração': r.duracao,
+              'Atendente': r.caller
+          };
+      });
+
+      // 4. Cria o arquivo XLSX em memória
+      const worksheet = XLSX.utils.json_to_sheet(dataForSheet);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Resultados");
+      
+      // Ajusta a largura das colunas
+      worksheet['!cols'] = [
+        { wch: 30 }, // Paciente
+        { wch: 30 }, // Empresa
+        { wch: 20 }, // Sala
+        { wch: 15 }, // Local
+        { wch: 12 }, // Data
+        { wch: 12 }, // Registro
+        { wch: 12 }, // Início
+        { wch: 12 }, // Fim
+        { wch: 10 }, // Espera
+        { wch: 10 }, // Duração
+        { wch: 20 }  // Atendente
+      ];
+
+      const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+      // 5. Envia o arquivo para o navegador
+      res.setHeader('Content-Disposition', 'attachment; filename="relatorio_atendimentos.xlsx"');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buffer);
+
+  } catch (err) {
+      logger.error("Erro ao exportar para XLSX:", err);
+      res.status(500).send("Erro ao gerar o relatório.");
   }
 });
 

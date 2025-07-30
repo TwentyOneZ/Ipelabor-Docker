@@ -151,16 +151,17 @@
         <div>
           <p>Tempo médio de atendimento:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
         </div>
-        <% if (nivelAcesso === 'admin') { %>
         <div class="stats-button">
-          <button type="submit">🗑️✅</button>
+          <% if (nivelAcesso === 'admin') { %>
+            <button type="submit">🗑️✅</button>
+          <% } %>
+          <button type="button" id="exportBtn" style="background: #1e88e5; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Exportar XLSX</button>
         </div>
-        <% } %>
       </div>
     <% } %>
     </div>
 
-  <% if (results.length > 0) { %>
+    <% if (results.length > 0) { %>
     <div class="results">
       <table id="resultsTable">
         <thead>
@@ -226,6 +227,22 @@
             th.dataset.dir = dir;
             searchForm.submit();
           });
+        });
+
+        // Novo script para o botão de exportar
+        document.getElementById('exportBtn')?.addEventListener('click', () => {
+            const form = document.querySelector('form[action="/search"]');
+            const params = new URLSearchParams();
+            
+            // Pega os valores dos filtros do formulário
+            new FormData(form).forEach((value, key) => {
+                if (value) {
+                    params.append(key, value);
+                }
+            });
+
+            // Redireciona para a rota de exportação com os filtros como query params
+            window.location.href = `/export?${params.toString()}`;
         });
       </script>
     </div>
