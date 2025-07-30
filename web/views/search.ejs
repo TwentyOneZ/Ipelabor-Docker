@@ -151,11 +151,12 @@
         <div>
           <p>Tempo médio de atendimento:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
         </div>
-        <div class="stats-button">
+        <div class="stats-button" style="display: flex; align-items: center;">
           <% if (nivelAcesso === 'admin') { %>
-            <button type="submit" style="border: none; padding: 8px; border-radius: 4px; cursor: pointer; margin-left: 10px;">🗑️✅</button>
+            <button type="submit" style="background: transparent; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;">🗑️✅</button>
+            <!-- <button type="submit" style="border: none; padding: 8px; border-radius: 4px; cursor: pointer; margin-left: 10px;">🗑️✅</button> -->
           <% } %>
-          <button type="button" id="exportBtn" style="border: none; padding: 8px; border-radius: 4px; cursor: pointer; margin-left: 10px;">
+          <button type="button" id="exportBtn" style="background: transparent; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;">
             <img src="/images/xlsx.png" alt="Exportar XLSX" style="height: 64px; display: block;">
           </button>
         </div>
