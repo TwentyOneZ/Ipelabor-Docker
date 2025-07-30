@@ -28,4 +28,7 @@ RUN npm install
 # 3. Copia o restante do código da aplicação web
 COPY ./web .
 
+# 4. COPIA O ARQUIVO DE CONFIGURAÇÃO PARA O LUGAR CERTO
+COPY config.ini ../
+
 CMD ["node", "server.js"]
