@@ -151,9 +151,9 @@
         <div>
           <p>Tempo médio de atendimento:  <strong><%= fmt(avgDuracaoSec) %></strong></p>
         </div>
-        <div class="stats-button">
+        <div class="stats-button" style="display: flex; align-items: center;">
           <% if (nivelAcesso === 'admin') { %>
-            <button type="submit">🗑️✅</button>
+            <button type="submit" style="background: #e51e1e; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;">🗑️✅</button>
           <% } %>
           <button type="button" id="exportBtn" style="background: #1e88e5; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Baixar planilha</button>
         </div>
