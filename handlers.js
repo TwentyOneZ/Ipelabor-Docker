@@ -11,6 +11,8 @@ const messageCache = new Map();
 const settings = config.settings || {};
 const finalizationEmojis = (settings.finalizationEmojis || '')
   .split(',').map(e => e.trim());
+const asoSignEmojis = (settings.asoSignEmojis || '')
+  .split(',').map(e => e.trim());
 
 // Map<chatId, { msgId: string, text: string }>
 const currentAttendance = new Map();
@@ -410,7 +412,7 @@ async function handleIncomingMessages(upsert, sock) {
                 || msg.message?.extendedTextMessage?.text
                 || msg.message?.imageMessage?.caption
                 || '';
-
+  
     if (!branch) {
       logger.debug(`⏭️ Ignorando mensagem de chat não mapeado: ${chatId}`);
       continue;
@@ -466,7 +468,7 @@ async function handleIncomingMessages(upsert, sock) {
       }
 
       // ➌ Lógica ESPECÍFICA para a reação de ASO
-      if (branch === 'grupo_aso' && emoji === '😂' && settings.registerDatabase) {
+      if (branch === 'grupo_aso' && asoSignEmojis.includes(emoji) && settings.registerDatabase) {
         logger.info(`✅ Acionando a função signASO para o grupo_aso. Mensagem original: "${textoOriginal}"`);
         await signASO(pool, textoOriginal);
         continue; // Termina o processamento para esta branch
@@ -516,6 +518,7 @@ async function handleIncomingMessages(upsert, sock) {
         else if (finalizationEmojis.includes(emoji)) {
           const sala = reactedChatId;
           const record = currentAttendance.get(sala);
+            
           if (record) {
             const { msgId: msgIdAtual, text: recText } = record;
 
@@ -524,11 +527,6 @@ async function handleIncomingMessages(upsert, sock) {
               const now = new Date();
               const horaAgora = now.toTimeString().slice(0,8);
               await finalizeAttendance(pool, msgIdAtual, horaAgora, now);
-            }
-            
-            // ➋ Se for o emoji '😂', também marca o ASO assinado
-            if (emoji === '😂' && settings.registerDatabase) {
-              await signASO(pool, textoOriginal);
             }
 
             // ➋ Remove o emoji daquela sala de TODAS as salas para recText
@@ -539,10 +537,11 @@ async function handleIncomingMessages(upsert, sock) {
             // ➌ Limpa o rastreador
             currentAttendance.delete(sala);
           }
-        }
 
-        if (emoji === '😂' && settings.registerDatabase) {
-          await signASO(pool, textoOriginal);
+          // ➋ Se for o emoji '😂' e a sala for 'Consultório Clínico', também marca o ASO assinado
+          if (emoji === '😂' && settings.registerDatabase && config.rooms?.[reactedChatId] === 'Consultório Clínico') {
+            await signASO(pool, textoOriginal);
+          }
         }
 
         // log e publishes
