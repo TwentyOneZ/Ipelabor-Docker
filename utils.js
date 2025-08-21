@@ -37,4 +37,4 @@ function normalizeText(text) {
   return t.trim();
 }
 
-module.exports = { getBranchByChatId, getTopicsByBranch, normalizeText };
+module.exports = { getBranchByChatId, getTopicsByBranch, normalizeText, normalizeAccents };
