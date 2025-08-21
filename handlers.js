@@ -416,47 +416,6 @@ async function handleIncomingMessages(upsert, sock) {
       continue;
     }
 
-    // --- LÓGICA ESPECÍFICA PARA GRUPOS DE ASSINATURA DE ASO ---
-    if (branch === 'grupo_aso') {
-      logger.info(`🔍 Debug: Conteúdo de msg.message: ${JSON.stringify(msg.message)}`);
-      if (msg.message?.reactionMessage) {
-        const reaction      = msg.message.reactionMessage;
-        const emoji         = reaction.text;
-        const reactionMsgId = reaction.key.id;
-        const reactedChatId = reaction.key.remoteJid;
-        const branchReact   = getBranchByChatId(reactedChatId);
-        const participant   = msg.key.participant || msg.key.remoteJid;
-  
-        if (!branchReact) continue;
-  
-        // Recupera texto original
-        let original = messageCache.get(reactionMsgId);
-        logger.info(`🔍 original: ${messageCache.get(reactionMsgId)}`);        
-        if (!original) {
-          original = await getMessageById(pool, reactionMsgId);
-          if (original) messageCache.set(reactionMsgId, original);
-        }
-        const textoOriginal = original?.text || '';
-  
-        logger.info(`🔍 textoOriginal: ${textoOriginal}`);        
-        // Só processa se contiver hífen
-        if (!textoOriginal.includes('-')) {
-          logger.info(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
-          continue;
-        }
-        logger.info(`🔍 DebugB: Conteúdo de msg.message.reactionMessage: ${emoji} ${settings.registerDatabase}`);
-        // 🏁 = Registra o ASO
-        if (emoji === '😂' && settings.registerDatabase) {
-          logger.info(`🔍 Debug: pool e textoOriginal: ${pool} ${textoOriginal}`);
-          await signASO(pool, textoOriginal);
-        }
-  
-      }
-      // Ignora o resto do processamento para esta branch, pois nada deve ser enviado ao MQTT
-      continue;
-    }
-
-    // --- LÓGICA PADRÃO PARA OS DEMAIS GRUPOS ---
     // --- 1) Mensagem de texto recebida ---
     if (text) {
       // Só processa se contiver hífen
@@ -467,23 +426,16 @@ async function handleIncomingMessages(upsert, sock) {
         messageCache.set(msgId, { chatId, text, fromMe: msg.key.fromMe, participant: msg.key.participant || msg.key.remoteJid });
         await insertMessage(pool, msgId, chatId, branch, text, msg.key.fromMe, msg.key.participant || msg.key.remoteJid);
 
-        if (settings.registerDatabase) {
+        // ➋ Se NÃO for um grupo ASO, cria a entrada na tabela 'atendimentos'
+        if (branch !== 'grupo_aso' && settings.registerDatabase) {
           await registerAttendanceOnReceive(pool, msgId, chatId, branch, text);
-        }
-
-        logMessage(chatId, text);
-
-        if (topics?.topicMessages) {
-          mqttClient.publish(
-            topics.topicMessages,
-            JSON.stringify({ text, chatId, branch }),
-            err => {
+          logMessage(chatId, text);
+          if (topics?.topicMessages) {
+            mqttClient.publish(topics.topicMessages, JSON.stringify({ text, chatId, branch }), err => {
               if (err) logger.error('❌ Falha ao publicar texto no MQTT:', err.message);
-              else    logger.info(`📤 Mensagem publicada em ${topics.topicMessages}`, text);
-            }
-          );
-        } else {
-          logger.debug('⚠️ tópicoMessages indefinido para a branch:', branch);
+              else logger.info(`📤 Mensagem publicada em ${topics.topicMessages}`, text);
+            });
+          }
         }
       }
     }
@@ -513,87 +465,97 @@ async function handleIncomingMessages(upsert, sock) {
         continue;
       }
 
-      // ❤️ = inicia atendimento na sala X
-      if (emoji === '❤️') {
-        const sala = reactedChatId;
-
-        // ➊ Se já houver atendimento ativo, remova marcação e finalize-o
-        if (currentAttendance.has(sala)) {
-          const { msgId: prevMsgId, text: prevText } = currentAttendance.get(sala);
-
-          // ➊.1 Remove o emoji antigo (daquela sala) de TODAS as salas
-          if (settings.markEmojis) {
-            await removeMarks(prevText, sala, sock);
-          }
-
-          // ➊.2 Finaliza no banco
-          if (settings.registerDatabase) {
-            const now = new Date();
-            const horaAgora = now.toTimeString().slice(0,8);
-            await finalizeAttendance(pool, prevMsgId, horaAgora, now);
-            logger.info(`🛑 Atendimento anterior em ${config.rooms?.[sala]} finalizado automaticamente.`);
-          }
-        }
-
-        // ➋ Armazena o novo atendimento (msgId + texto) no Map
-        currentAttendance.set(sala, { msgId: reactionMsgId, text: textoOriginal });
-
-        // ➌ Marca com emojiX em todas as salas para a nova mensagem
-        if (settings.markEmojis) {
-          await markUniqueInRoom(textoOriginal, sala, sock);
-        }
-
-        // ➍ Registra início no banco
-        if (settings.registerDatabase) {
-          const reactedBy = msg.pushName || 'Usuário desconhecido';
-          await startAttendance(pool, reactionMsgId, reactedBy);
-        }
-      }
-
-
-      // 🏁 = finaliza atendimento na sala X
-      else if (finalizationEmojis.includes(emoji)) {
-        const sala = reactedChatId;
-        const record = currentAttendance.get(sala);
-        if (record) {
-          const { msgId: msgIdAtual, text: recText } = record;
-
-          // ➊ Finaliza no banco
-          if (settings.registerDatabase) {
-            const now = new Date();
-            const horaAgora = now.toTimeString().slice(0,8);
-            await finalizeAttendance(pool, msgIdAtual, horaAgora, now);
-          }
-          
-          // ➋ Se for o emoji '😂', também marca o ASO assinado
-          if (emoji === '😂' && settings.registerDatabase) {
-            await signASO(pool, textoOriginal);
-          }
-
-          // ➋ Remove o emoji daquela sala de TODAS as salas para recText
-          if (settings.markEmojis) {
-            await removeMarks(recText, sala, sock);
-          }
-
-          // ➌ Limpa o rastreador
-          currentAttendance.delete(sala);
-        }
-      }
-
-      if (emoji === '😂' && settings.registerDatabase) {
+      // ➌ Lógica ESPECÍFICA para a reação de ASO
+      if (branch === 'grupo_aso' && emoji === '😂' && settings.registerDatabase) {
+        logger.info(`✅ Acionando a função signASO para o grupo_aso. Mensagem original: "${textoOriginal}"`);
         await signASO(pool, textoOriginal);
+        continue; // Termina o processamento para esta branch
       }
 
-      // log e publishes
-      logMessage(chatId, textoOriginal, true, emoji);
-      if (topics) {
-        const reactedBy = msg.pushName || 'Usuário desconhecido';
-        publishReactionRaw(topics, emoji, textoOriginal, chatId, reactedBy);
-
+      if (branch !== 'grupo_aso') {
+        const participant   = msg.key.participant || msg.key.remoteJid;
+        // ❤️ = inicia atendimento na sala X
         if (emoji === '❤️') {
-          // publica o chamado
-          const name = textoOriginal.split(/\s*-\s*/)[0].trim();
-          publishCall(topics, name, reactedChatId, reactionMsgId, msg.pushName);
+          const sala = reactedChatId;
+
+          // ➊ Se já houver atendimento ativo, remova marcação e finalize-o
+          if (currentAttendance.has(sala)) {
+            const { msgId: prevMsgId, text: prevText } = currentAttendance.get(sala);
+
+            // ➊.1 Remove o emoji antigo (daquela sala) de TODAS as salas
+            if (settings.markEmojis) {
+              await removeMarks(prevText, sala, sock);
+            }
+
+            // ➊.2 Finaliza no banco
+            if (settings.registerDatabase) {
+              const now = new Date();
+              const horaAgora = now.toTimeString().slice(0,8);
+              await finalizeAttendance(pool, prevMsgId, horaAgora, now);
+              logger.info(`🛑 Atendimento anterior em ${config.rooms?.[sala]} finalizado automaticamente.`);
+            }
+          }
+
+          // ➋ Armazena o novo atendimento (msgId + texto) no Map
+          currentAttendance.set(sala, { msgId: reactionMsgId, text: textoOriginal });
+
+          // ➌ Marca com emojiX em todas as salas para a nova mensagem
+          if (settings.markEmojis) {
+            await markUniqueInRoom(textoOriginal, sala, sock);
+          }
+
+          // ➍ Registra início no banco
+          if (settings.registerDatabase) {
+            const reactedBy = msg.pushName || 'Usuário desconhecido';
+            await startAttendance(pool, reactionMsgId, reactedBy);
+          }
+        }
+
+
+        // 🏁 = finaliza atendimento na sala X
+        else if (finalizationEmojis.includes(emoji)) {
+          const sala = reactedChatId;
+          const record = currentAttendance.get(sala);
+          if (record) {
+            const { msgId: msgIdAtual, text: recText } = record;
+
+            // ➊ Finaliza no banco
+            if (settings.registerDatabase) {
+              const now = new Date();
+              const horaAgora = now.toTimeString().slice(0,8);
+              await finalizeAttendance(pool, msgIdAtual, horaAgora, now);
+            }
+            
+            // ➋ Se for o emoji '😂', também marca o ASO assinado
+            if (emoji === '😂' && settings.registerDatabase) {
+              await signASO(pool, textoOriginal);
+            }
+
+            // ➋ Remove o emoji daquela sala de TODAS as salas para recText
+            if (settings.markEmojis) {
+              await removeMarks(recText, sala, sock);
+            }
+
+            // ➌ Limpa o rastreador
+            currentAttendance.delete(sala);
+          }
+        }
+
+        if (emoji === '😂' && settings.registerDatabase) {
+          await signASO(pool, textoOriginal);
+        }
+
+        // log e publishes
+        logMessage(chatId, textoOriginal, true, emoji);
+        if (topics) {
+          const reactedBy = msg.pushName || 'Usuário desconhecido';
+          publishReactionRaw(topics, emoji, textoOriginal, chatId, reactedBy);
+
+          if (emoji === '❤️') {
+            // publica o chamado
+            const name = textoOriginal.split(/\s*-\s*/)[0].trim();
+            publishCall(topics, name, reactedChatId, reactionMsgId, msg.pushName);
+          }
         }
       }
     }
