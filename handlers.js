@@ -442,9 +442,10 @@ async function handleIncomingMessages(upsert, sock) {
           logger.debug(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
           continue;
         }
-  
+        logger.info(`🔍 Debug: Conteúdo de msg.message.reactionMessage: ${emoji} ${settings.registerDatabase}`);
         // 🏁 = Registra o ASO
         if (emoji === '😂' && settings.registerDatabase) {
+          logger.info(`🔍 Debug: pool e textoOriginal: ${pool} ${textoOriginal}`);
           await signASO(pool, textoOriginal);
         }
   
