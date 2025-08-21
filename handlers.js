@@ -473,11 +473,11 @@ async function handleIncomingMessages(upsert, sock) {
       }
       const textoOriginal = original?.text || '';
 
-      logger.info(`Debug: textoOriginal: "${textoOriginal}"`);
-      logger.info(`Debug: branch === 'grupo_aso': "${branch} === ${'grupo_aso'} ${branch === 'grupo_aso'}"`);
+      logger.debug(`Debug: textoOriginal: "${textoOriginal}"`);
+      logger.debug(`Debug: branch === 'grupo_aso': "${branch} === ${'grupo_aso'} ${branch === 'grupo_aso'}"`);
       // Só processa se contiver hífen
       if (!textoOriginal.includes('-')) {
-        logger.info(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
+        logger.debug(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
         continue;
       }
 
