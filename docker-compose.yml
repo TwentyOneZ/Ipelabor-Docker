@@ -41,6 +41,7 @@ services:
     volumes:
     #  - .:/app
       - ./config.ini:/app/config.ini
+      - baileys_auth:/app/baileys_auth_info
     working_dir: /app
     command: ["node", "index.js"]
     restart: unless-stopped
@@ -67,3 +68,4 @@ services:
 
 volumes:
   mysql_data:
+  baileys_auth:
