@@ -199,7 +199,8 @@ app.post("/search", auth, async (req, res) => {
       hora_fim,
       espera,
       duracao,
-      caller
+      caller,
+      ASO_assinado
     FROM atendimentos
     ${where}
     ORDER BY \`${sortBy}\` ${sortDir}

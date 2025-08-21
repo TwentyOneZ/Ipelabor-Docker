@@ -351,7 +351,13 @@ async function signASO(pool, originalText) {
 
   // Data e hora atuais para o registro
   const now = new Date();
-  const ASO_assinado = now.toISOString().slice(0, 19).replace('T', ' ');
+  const YYYY = now.getFullYear();
+  const MM = String(now.getMonth() + 1).padStart(2, '0');
+  const DD = String(now.getDate()).padStart(2, '0');
+  const HH = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  const ASO_assinado = `${YYYY}-${MM}-${DD} ${HH}:${mm}:${ss}`;
 
   logger.debug(`🛠️ Marcando ASO para paciente: ${paciente}, empresa: ${empresa}`);
 
