@@ -1,7 +1,7 @@
 // handlers.js
 
 const { logMessage } = require('./logUtils');
-const { getTopicsByBranch, getBranchByChatId, normalizeText } = require('./utils');
+const { getTopicsByBranch, getBranchByChatId, normalizeText, normalizeAccents } = require('./utils');
 const { getPool } = require('./database');
 const { getMQTT } = require('./mqttClient');
 const logger = require('./logger');
@@ -344,7 +344,7 @@ function publishCall(topics, name, reactedChatId, msgId, reactedBy) {
  */
 async function signASO(pool, originalText) {
   // Extrai nome e empresa da mensagem original e normaliza para a busca
-  const cleaned = normalizeText(originalText);
+  const cleaned = normalizeAccents(normalizeText(originalText));
   const parts = cleaned.split(/\s*-\s*/);
   const paciente = parts[0].trim();
   const empresaTerms = parts.length > 1
@@ -472,9 +472,11 @@ async function handleIncomingMessages(upsert, sock) {
       }
       const textoOriginal = original?.text || '';
 
+      logger.info(`Debug: textoOriginal: "${textoOriginal}"`);
+      logger.info(`Debug: branch === 'grupo_aso': "${branch} === ${'grupo_aso'} ${branch === 'grupo_aso'}"`);
       // Só processa se contiver hífen
       if (!textoOriginal.includes('-')) {
-        logger.debug(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
+        logger.info(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
         continue;
       }
 
