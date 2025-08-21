@@ -467,9 +467,8 @@ async function handleIncomingMessages(upsert, sock) {
         continue;
       }
 
-      // ➌ Lógica ESPECÍFICA para a reação de ASO
+      // Lógica 2: Apenas assinar ASO para grupos ASO com os emojis configurados
       if (branch === 'grupo_aso' && asoSignEmojis.includes(emoji) && settings.registerDatabase) {
-        logger.info(`✅ Acionando a função signASO para o grupo_aso. Mensagem original: "${textoOriginal}"`);
         await signASO(pool, textoOriginal);
         continue; // Termina o processamento para esta branch
       }
@@ -518,6 +517,12 @@ async function handleIncomingMessages(upsert, sock) {
         else if (finalizationEmojis.includes(emoji)) {
           const sala = reactedChatId;
           const record = currentAttendance.get(sala);
+
+          // Assinar ASO para grupos de Consultório Clínico com emoji '😂'
+          if (config.rooms?.[reactedChatId] === 'Consultório Clínico' && emoji === '😂' && settings.registerDatabase) {
+            // Assina o ASO
+            await signASO(pool, textoOriginal);
+          }
             
           if (record) {
             const { msgId: msgIdAtual, text: recText } = record;
@@ -538,10 +543,6 @@ async function handleIncomingMessages(upsert, sock) {
             currentAttendance.delete(sala);
           }
 
-          // ➋ Se for o emoji '😂' e a sala for 'Consultório Clínico', também marca o ASO assinado
-          if (emoji === '😂' && settings.registerDatabase && config.rooms?.[reactedChatId] === 'Consultório Clínico') {
-            await signASO(pool, textoOriginal);
-          }
         }
 
         // log e publishes
