@@ -418,6 +418,7 @@ async function handleIncomingMessages(upsert, sock) {
 
     // --- LÓGICA ESPECÍFICA PARA GRUPOS DE ASSINATURA DE ASO ---
     if (branch === 'grupo_aso') {
+      logger.info(`🔍 Debug: Conteúdo de msg.message: ${JSON.stringify(msg.message)}`);
       if (msg.message?.reactionMessage) {
         const reaction      = msg.message.reactionMessage;
         const emoji         = reaction.text;
