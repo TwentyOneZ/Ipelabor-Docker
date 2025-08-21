@@ -23,7 +23,7 @@ function normalizeAccents(str) {
 
 function normalizeText(text) {
   // ➊ remove asteriscos e o sufixo " ASSINA ✅"
-  let t = text.replace(/\*/g, '').replace(/\s*ASSINA\s*/g, '').replace(/\s*✅\s*/g, '');
+  let t = text.replace(/\*/g, '').replace(/\s*ASSINAR\s*/g, '').replace(/\s*ASSINA\s*/g, '').replace(/\s*✅\s*/g, '');
 
   // remove espaços iniciais
   t = t.trimStart();
