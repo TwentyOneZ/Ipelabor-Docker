@@ -351,7 +351,7 @@ async function signASO(pool, originalText) {
     ? parts.slice(1).join(' ').trim().split(' ').filter(term => term.length > 2)
     : [];
 
-  logger.debug(`🛠️ Marcando ASO para paciente: ${paciente}, termos da empresa: ${empresaTerms.join(', ')}`);
+  logger.info(`🛠️ Marcando ASO para paciente: ${paciente}, termos da empresa: ${empresaTerms.join(', ')}`);
 
   // Constrói a consulta dinamicamente para lidar com a busca parcial da empresa
   let sql = `
