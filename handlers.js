@@ -404,6 +404,7 @@ async function handleIncomingMessages(upsert, sock) {
     const msgId  = msg.key.id;
     const chatId = msg.key.remoteJid;
     const branch = getBranchByChatId(chatId);
+    logger.debug(`🔍 Debug: Mensagem do chatId: ${chatId}, detectado branch: ${branch}`);
     const topics = branch ? getTopicsByBranch(branch) : null;
     const text   = msg.message?.conversation
                 || msg.message?.extendedTextMessage?.text
