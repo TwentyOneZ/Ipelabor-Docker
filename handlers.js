@@ -433,15 +433,17 @@ async function handleIncomingMessages(upsert, sock) {
   
         // Recupera texto original
         let original = messageCache.get(reactionMsgId);
+        logger.info(`🔍 original: ${messageCache.get(reactionMsgId)}`);        
         if (!original) {
           original = await getMessageById(pool, reactionMsgId);
           if (original) messageCache.set(reactionMsgId, original);
         }
         const textoOriginal = original?.text || '';
   
+        logger.info(`🔍 textoOriginal: ${textoOriginal}`);        
         // Só processa se contiver hífen
         if (!textoOriginal.includes('-')) {
-          logger.debug(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
+          logger.info(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
           continue;
         }
         logger.info(`🔍 DebugB: Conteúdo de msg.message.reactionMessage: ${emoji} ${settings.registerDatabase}`);
