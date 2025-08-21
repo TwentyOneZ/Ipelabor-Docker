@@ -155,11 +155,12 @@ app.post("/search", auth, async (req, res) => {
     branch    = '',
     caller    = '',
     startDate = '',
-    endDate   = ''
+    endDate   = '',
+    asoAssinado = 'Todos' // <-- NOVO FILTRO
   } = req.body;
 
   try {
-    const filtrosParaLog = { name, empresa, sala, branch, caller, startDate, endDate };
+    const filtrosParaLog = { name, empresa, sala, branch, caller, startDate, endDate, asoAssinado };
     const usernameLog = req.session.username; // Pega o username da sessão
 
     const logSql = "INSERT INTO log_buscas (username, filtros) VALUES (?, ?)";
@@ -170,9 +171,9 @@ app.post("/search", auth, async (req, res) => {
   }
   
   
-  const allowedSortColumns = ['msgId', 'paciente', 'empresa', 'sala', 'branch', 'data', 'caller'];
-  const sortBy  = allowedSortColumns.includes(req.body.sortBy) ? req.body.sortBy : 'data'; // Usa o valor apenas se for seguro
-  const sortDir = req.body.sortDir === 'ASC' ? 'ASC' : 'DESC'; // Boa prática já implementada
+  const allowedSortColumns = ['msgId', 'paciente', 'empresa', 'sala', 'branch', 'data', 'caller', 'ASO_assinado'];
+  const sortBy  = allowedSortColumns.includes(req.body.sortBy) ? req.body.sortBy : 'data';
+  const sortDir = req.body.sortDir === 'ASC' ? 'ASC' : 'DESC';
 
   const clauses = [];
   const params  = [];
@@ -183,6 +184,12 @@ app.post("/search", auth, async (req, res) => {
   if (caller)    { clauses.push("caller LIKE ?");   params.push(`%${caller}%`); }
   if (startDate) { clauses.push("data >= ?");       params.push(startDate);       }
   if (endDate)   { clauses.push("data <= ?");       params.push(endDate);         }
+  // <-- LÓGICA DO NOVO FILTRO AQUI
+  if (asoAssinado === 'Sim') {
+    clauses.push("ASO_assinado IS NOT NULL");
+  } else if (asoAssinado === 'Não') {
+    clauses.push("ASO_assinado IS NULL");
+  }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
@@ -207,10 +214,10 @@ app.post("/search", auth, async (req, res) => {
   `;
 
   try {
-    const [results] = await db.query(sql, params); // Mudar para await
+    const [results] = await db.query(sql, params);
     res.render("search", {
       results,
-      filters: { name, empresa, sala, branch, startDate, endDate, caller },
+      filters: { name, empresa, sala, branch, startDate, endDate, caller, asoAssinado }, // <-- PASSA NOVO FILTRO PARA A VIEW
       sorting: { sortBy, sortDir },
       nivelAcesso: req.session.nivelAcesso
     });
@@ -229,7 +236,8 @@ app.get("/export", auth, async (req, res) => {
       branch = '',
       caller = '',
       startDate = '',
-      endDate = ''
+      endDate = '',
+      asoAssinado = 'Todos' // <-- NOVO FILTRO
   } = req.query;
 
   // 2. Monta a query SQL (lógica idêntica à da busca)
@@ -242,10 +250,16 @@ app.get("/export", auth, async (req, res) => {
   if (caller) { clauses.push("caller LIKE ?"); params.push(`%${caller}%`); }
   if (startDate) { clauses.push("data >= ?"); params.push(startDate); }
   if (endDate) { clauses.push("data <= ?"); params.push(endDate); }
+  // <-- LÓGICA DO NOVO FILTRO AQUI
+  if (asoAssinado === 'Sim') {
+    clauses.push("ASO_assinado IS NOT NULL");
+  } else if (asoAssinado === 'Não') {
+    clauses.push("ASO_assinado IS NULL");
+  }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const sql = `
-    SELECT paciente, empresa, sala, branch, data, hora_registro, hora_inicio, hora_fim, espera, duracao, caller
+    SELECT paciente, empresa, sala, branch, data, hora_registro, hora_inicio, hora_fim, espera, duracao, caller, ASO_assinado
     FROM atendimentos
     ${where}
     ORDER BY data DESC, hora_registro DESC
@@ -258,6 +272,7 @@ app.get("/export", auth, async (req, res) => {
       const dataForSheet = results.map(r => {
           // Formata a data para o padrão brasileiro
           const dataFormatada = r.data ? new Date(r.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
+          const asoAssinadoFormatado = r.ASO_assinado ? new Date(r.ASO_assinado).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''; // NOVO CAMPO
           return {
               'Paciente': r.paciente,
               'Empresa': r.empresa,
@@ -269,7 +284,8 @@ app.get("/export", auth, async (req, res) => {
               'Fim': r.hora_fim,
               'Espera': r.espera,
               'Duração': r.duracao,
-              'Atendente': r.caller
+              'Atendente': r.caller,
+              'ASO Assinado': asoAssinadoFormatado // NOVO CAMPO
           };
       });
 
@@ -290,7 +306,8 @@ app.get("/export", auth, async (req, res) => {
         { wch: 12 }, // Fim
         { wch: 10 }, // Espera
         { wch: 10 }, // Duração
-        { wch: 20 }  // Atendente
+        { wch: 20 }, // Atendente
+        { wch: 20 }  // NOVO CAMPO ASO Assinado
       ];
 
       const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });

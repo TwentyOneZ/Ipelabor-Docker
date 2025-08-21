@@ -109,7 +109,14 @@
         <input name="startDate" type="date" value="<%= filters.startDate %>">
       </label>
       <label>Data Fim:
-        <input name="endDate"   type="date" value="<%= filters.endDate   %>">
+        <input name="endDate" type="date" value="<%= filters.endDate %>">
+      </label>
+      <label>ASO Assinado:
+        <select name="asoAssinado">
+          <option value="Todos" <%= filters.asoAssinado === 'Todos' ? 'selected' : '' %>>Todos</option>
+          <option value="Sim" <%= filters.asoAssinado === 'Sim' ? 'selected' : '' %>>Sim</option>
+          <option value="Não" <%= filters.asoAssinado === 'Não' ? 'selected' : '' %>>Não</option>
+        </select>
       </label>
       <!-- campos hidden para sort -->
       <input type="hidden" name="sortBy"  id="sortBy"  value="<%= sorting.sortBy  %>">
