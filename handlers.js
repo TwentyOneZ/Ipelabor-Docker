@@ -361,11 +361,12 @@ async function signASO(pool, originalText) {
   `;
   const params = [`%${paciente}%`];
 
-  // Adiciona as cláusulas de busca para cada palavra do nome da empresa
-  empresaTerms.forEach(term => {
-    sql += ` AND LOWER(empresa) LIKE ?`;
-    params.push(`%${term}%`);
-  });
+  // Adiciona a cláusula de busca para a empresa com OR
+  if (empresaTerms.length > 0) {
+    const empresaClauses = empresaTerms.map(() => `LOWER(empresa) LIKE ?`);
+    sql += ` AND (${empresaClauses.join(' OR ')})`;
+    empresaTerms.forEach(term => params.push(`%${term}%`));
+  }
 
   sql += `
     ORDER BY hora_registro DESC
