@@ -418,9 +418,15 @@ async function handleIncomingMessages(upsert, sock) {
     // --- LÓGICA ESPECÍFICA PARA GRUPOS DE ASSINATURA DE ASO ---
     if (branch === 'grupo_aso') {
       if (msg.message?.reactionMessage) {
-        const emoji         = msg.message.reactionMessage.text;
-        const reactionMsgId = msg.message.reactionMessage.key.id;
-
+        const reaction      = msg.message.reactionMessage;
+        const emoji         = reaction.text;
+        const reactionMsgId = reaction.key.id;
+        const reactedChatId = reaction.key.remoteJid;
+        const branchReact   = getBranchByChatId(reactedChatId);
+        const participant   = msg.key.participant || msg.key.remoteJid;
+  
+        if (!branchReact) continue;
+  
         // Recupera texto original
         let original = messageCache.get(reactionMsgId);
         if (!original) {
@@ -428,13 +434,18 @@ async function handleIncomingMessages(upsert, sock) {
           if (original) messageCache.set(reactionMsgId, original);
         }
         const textoOriginal = original?.text || '';
-
-        // Se for o emoji 😂, aciona a função de assinar ASO
-        if (emoji === '😂' && textoOriginal.includes('-')) {
-          if (settings.registerDatabase) {
-            await signASO(pool, textoOriginal);
-          }
+  
+        // Só processa se contiver hífen
+        if (!textoOriginal.includes('-')) {
+          logger.debug(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
+          continue;
         }
+  
+        // 🏁 = Registra o ASO
+        if (emoji === '😂' && settings.registerDatabase) {
+          await signASO(pool, textoOriginal);
+        }
+  
       }
       // Ignora o resto do processamento para esta branch, pois nada deve ser enviado ao MQTT
       continue;
@@ -564,6 +575,9 @@ async function handleIncomingMessages(upsert, sock) {
         }
       }
 
+      if (emoji === '😂' && settings.registerDatabase) {
+        await signASO(pool, textoOriginal);
+      }
 
       // log e publishes
       logMessage(chatId, textoOriginal, true, emoji);
