@@ -38,9 +38,9 @@ services:
       - mqtt_broker
     environment:
       TZ: America/Sao_Paulo       # <-- define o fuso
-    #volumes:
+    volumes:
     #  - .:/app
-    #  - ./config.ini:/app/config.ini
+      - ./config.ini:/app/config.ini
     working_dir: /app
     command: ["node", "index.js"]
     restart: unless-stopped

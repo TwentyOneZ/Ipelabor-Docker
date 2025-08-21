@@ -18,8 +18,8 @@ function getTopicsByBranch(branch) {
 }
 
 function normalizeText(text) {
-  // ➊ remove todos os asteriscos
-  let t = text.replace(/\*/g, '');
+  // ➊ remove asteriscos e o sufixo " ASSINA ✅"
+  let t = text.replace(/\*/g, '').replace(/\s*ASSINA\s*✅/g, '');
   
   // remove espaços iniciais
   t = t.trimStart();

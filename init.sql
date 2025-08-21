@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS atendimentos (
     espera VARCHAR(50),
     duracao VARCHAR(50),
     caller VARCHAR(255),
+    ASO_assinado DATETIME DEFAULT NULL,
     INDEX idx_atend_sala_fim_inicio (sala, hora_fim, hora_inicio DESC)
 );
 

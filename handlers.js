@@ -338,6 +338,48 @@ function publishCall(topics, name, reactedChatId, msgId, reactedBy) {
 }
 
 /**
+ * Marca os últimos 10 atendimentos de um paciente/empresa como "ASO assinado".
+ */
+async function signASO(pool, originalText) {
+  // Extrai nome e empresa da mensagem original
+  const cleaned = normalizeText(originalText);
+  const parts = cleaned.split(/\s*-\s*/);
+  const paciente = parts[0].trim().replace(/["*]/g, '');
+  const empresa = parts.length > 1
+    ? parts.slice(1).join(' - ').trim().replace(/["*]/g, '')
+    : '';
+
+  // Data e hora atuais para o registro
+  const now = new Date();
+  const ASO_assinado = now.toISOString().slice(0, 19).replace('T', ' ');
+
+  logger.debug(`🛠️ Marcando ASO para paciente: ${paciente}, empresa: ${empresa}`);
+
+  // Busca os últimos 10 atendimentos para este paciente/empresa que ainda não foram assinados
+  const [rows] = await pool.query(`
+    SELECT msgId FROM atendimentos
+    WHERE paciente = ?
+      AND empresa = ?
+      AND ASO_assinado IS NULL
+    ORDER BY hora_registro DESC
+    LIMIT 10
+  `, [paciente, empresa]);
+
+  if (rows.length === 0) {
+    logger.debug('⏭️ Nenhum registro encontrado para ser assinado.');
+    return;
+  }
+
+  // Atualiza os registros encontrados com a data e hora atuais
+  const msgIds = rows.map(row => row.msgId);
+  await pool.query(
+    `UPDATE atendimentos SET ASO_assinado = ? WHERE msgId IN (?)`,
+    [ASO_assinado, msgIds]
+  );
+  logger.info(`✍️ ASO assinado para ${rows.length} registros de "${paciente}"`);
+}
+
+/**
  * Processa um batch de mensagens.upsert
  */
 async function handleIncomingMessages(upsert, sock) {
@@ -362,11 +404,37 @@ async function handleIncomingMessages(upsert, sock) {
                 || msg.message?.imageMessage?.caption
                 || '';
 
-                if (!branch) {
+    if (!branch) {
       logger.debug(`⏭️ Ignorando mensagem de chat não mapeado: ${chatId}`);
       continue;
     }
 
+    // --- LÓGICA ESPECÍFICA PARA GRUPOS DE ASSINATURA DE ASO ---
+    if (branch === 'grupo_aso') {
+      if (msg.message?.reactionMessage) {
+        const emoji         = msg.message.reactionMessage.text;
+        const reactionMsgId = msg.message.reactionMessage.key.id;
+
+        // Recupera texto original
+        let original = messageCache.get(reactionMsgId);
+        if (!original) {
+          original = await getMessageById(pool, reactionMsgId);
+          if (original) messageCache.set(reactionMsgId, original);
+        }
+        const textoOriginal = original?.text || '';
+
+        // Se for o emoji 😂, aciona a função de assinar ASO
+        if (emoji === '😂' && textoOriginal.includes('-')) {
+          if (settings.registerDatabase) {
+            await signASO(pool, textoOriginal);
+          }
+        }
+      }
+      // Ignora o resto do processamento para esta branch, pois nada deve ser enviado ao MQTT
+      continue;
+    }
+
+    // --- LÓGICA PADRÃO PARA OS DEMAIS GRUPOS ---
     // --- 1) Mensagem de texto recebida ---
     if (text) {
       // Só processa se contiver hífen
@@ -473,6 +541,11 @@ async function handleIncomingMessages(upsert, sock) {
             const now = new Date();
             const horaAgora = now.toTimeString().slice(0,8);
             await finalizeAttendance(pool, msgIdAtual, horaAgora, now);
+          }
+          
+          // ➋ Se for o emoji '😂', também marca o ASO assinado
+          if (emoji === '😂' && settings.registerDatabase) {
+            await signASO(pool, textoOriginal);
           }
 
           // ➋ Remove o emoji daquela sala de TODAS as salas para recText
