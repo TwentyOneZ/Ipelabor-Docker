@@ -343,15 +343,44 @@ function publishCall(topics, name, reactedChatId, msgId, reactedBy) {
  * Marca os últimos 10 atendimentos de um paciente/empresa como "ASO assinado".
  */
 async function signASO(pool, originalText) {
-  // Extrai nome e empresa da mensagem original
+  // Extrai nome e empresa da mensagem original e normaliza para a busca
   const cleaned = normalizeText(originalText);
   const parts = cleaned.split(/\s*-\s*/);
-  const paciente = parts[0].trim().replace(/["*]/g, '');
-  const empresa = parts.length > 1
-    ? parts.slice(1).join(' - ').trim().replace(/["*]/g, '')
-    : '';
+  const paciente = parts[0].trim();
+  const empresaTerms = parts.length > 1
+    ? parts.slice(1).join(' ').trim().split(' ').filter(term => term.length > 2)
+    : [];
 
-  // Data e hora atuais para o registro
+  logger.debug(`🛠️ Marcando ASO para paciente: ${paciente}, termos da empresa: ${empresaTerms.join(', ')}`);
+
+  // Constrói a consulta dinamicamente para lidar com a busca parcial da empresa
+  let sql = `
+    SELECT msgId FROM atendimentos
+    WHERE LOWER(paciente) LIKE ?
+      AND ASO_assinado IS NULL
+  `;
+  const params = [`%${paciente}%`];
+
+  // Adiciona as cláusulas de busca para cada palavra do nome da empresa
+  empresaTerms.forEach(term => {
+    sql += ` AND LOWER(empresa) LIKE ?`;
+    params.push(`%${term}%`);
+  });
+
+  sql += `
+    ORDER BY hora_registro DESC
+    LIMIT 10
+  `;
+
+  // Busca os últimos 10 atendimentos
+  const [rows] = await pool.query(sql, params);
+
+  if (rows.length === 0) {
+    logger.debug('⏭️ Nenhum registro encontrado para ser assinado.');
+    return;
+  }
+
+  // Atualiza os registros encontrados com a data e hora atuais
   const now = new Date();
   const YYYY = now.getFullYear();
   const MM = String(now.getMonth() + 1).padStart(2, '0');
@@ -361,30 +390,12 @@ async function signASO(pool, originalText) {
   const ss = String(now.getSeconds()).padStart(2, '0');
   const ASO_assinado = `${YYYY}-${MM}-${DD} ${HH}:${mm}:${ss}`;
 
-  logger.debug(`🛠️ Marcando ASO para paciente: ${paciente}, empresa: ${empresa}`);
-
-  // Busca os últimos 10 atendimentos para este paciente/empresa que ainda não foram assinados
-  const [rows] = await pool.query(`
-    SELECT msgId FROM atendimentos
-    WHERE paciente = ?
-      AND empresa = ?
-      AND ASO_assinado IS NULL
-    ORDER BY hora_registro DESC
-    LIMIT 10
-  `, [paciente, empresa]);
-
-  if (rows.length === 0) {
-    logger.debug('⏭️ Nenhum registro encontrado para ser assinado.');
-    return;
-  }
-
-  // Atualiza os registros encontrados com a data e hora atuais
   const msgIds = rows.map(row => row.msgId);
   await pool.query(
     `UPDATE atendimentos SET ASO_assinado = ? WHERE msgId IN (?)`,
     [ASO_assinado, msgIds]
   );
-  logger.info(`✍️ ASO assinado para ${rows.length} registros de "${paciente}"`);
+  logger.info(`✍️ ASO assinado para ${rows.length} registros de "${paciente}" e empresa com termos "${empresaTerms.join('", "')}"`);
 }
 
 /**

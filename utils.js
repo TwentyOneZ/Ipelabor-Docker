@@ -20,6 +20,9 @@ function getTopicsByBranch(branch) {
 function normalizeText(text) {
   // ➊ remove asteriscos e o sufixo " ASSINA ✅"
   let t = text.replace(/\*/g, '').replace(/\s*ASSINA\s*/g, '').replace(/\s*✅\s*/g, '');
+
+  // Normaliza acentos e converte para minúsculas
+  t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   
   // remove espaços iniciais
   t = t.trimStart();
