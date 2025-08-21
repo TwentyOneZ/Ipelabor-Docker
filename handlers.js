@@ -427,8 +427,6 @@ async function handleIncomingMessages(upsert, sock) {
         const branchReact   = getBranchByChatId(reactedChatId);
         const participant   = msg.key.participant || msg.key.remoteJid;
   
-        logger.info(`🔍 Debug: branchRect: ${branchReact}`);
-        logger.info(`🔍 DebugA: Conteúdo de msg.message.reactionMessage: ${JSON.stringify(msg.message.reactionMessage)}`);
         if (!branchReact) continue;
   
         // Recupera texto original
