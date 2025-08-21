@@ -427,6 +427,8 @@ async function handleIncomingMessages(upsert, sock) {
         const branchReact   = getBranchByChatId(reactedChatId);
         const participant   = msg.key.participant || msg.key.remoteJid;
   
+        logger.info(`🔍 Debug: branchRect: ${branchReact}`);
+        logger.info(`🔍 DebugA: Conteúdo de msg.message.reactionMessage: ${JSON.stringify(msg.message.reactionMessage)}`);
         if (!branchReact) continue;
   
         // Recupera texto original
@@ -442,7 +444,7 @@ async function handleIncomingMessages(upsert, sock) {
           logger.debug(`❌ Ignorando reação em mensagem sem hífen: "${textoOriginal}"`);
           continue;
         }
-        logger.info(`🔍 Debug: Conteúdo de msg.message.reactionMessage: ${emoji} ${settings.registerDatabase}`);
+        logger.info(`🔍 DebugB: Conteúdo de msg.message.reactionMessage: ${emoji} ${settings.registerDatabase}`);
         // 🏁 = Registra o ASO
         if (emoji === '😂' && settings.registerDatabase) {
           logger.info(`🔍 Debug: pool e textoOriginal: ${pool} ${textoOriginal}`);
