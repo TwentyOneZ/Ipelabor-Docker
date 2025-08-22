@@ -344,7 +344,7 @@ function publishCall(topics, name, reactedChatId, msgId, reactedBy) {
  */
 async function signASO(pool, originalText) {
   // Extrai nome e empresa da mensagem original e normaliza para a busca
-  const cleaned = normalizeAccents(normalizeText(originalText));
+  const cleaned = normalizeText(originalText);
   const parts = cleaned.split(/\s*-\s*/);
   const paciente = parts[0].trim();
   const empresaTerms = parts.length > 1
@@ -354,33 +354,29 @@ async function signASO(pool, originalText) {
   logger.info(`🛠️ Marcando ASO para paciente: ${paciente}, termos da empresa: ${empresaTerms.join(', ')}`);
 
   let rows = [];
-  
-  // Constrói a consulta dinamicamente para lidar com a busca parcial da empresa
+
+  // 1. Tenta a busca por correspondência exata (insensível a maiúsculas/minúsculas e acentos)
+  logger.debug('Tentando busca exata...');
   let sql = `
     SELECT msgId FROM atendimentos
-    WHERE LOWER(paciente) LIKE ?
+    WHERE LOWER(paciente) = ?
       AND ASO_assinado IS NULL
   `;
-  const params = [`%${paciente}%`];
+  const params = [paciente];
 
-  // Adiciona a cláusula de busca para a empresa com OR
   if (empresaTerms.length > 0) {
     const empresaClauses = empresaTerms.map(() => `LOWER(empresa) LIKE ?`);
     sql += ` AND (${empresaClauses.join(' OR ')})`;
     empresaTerms.forEach(term => params.push(`%${term}%`));
   }
-
-  sql += `
-    ORDER BY hora_registro DESC
-    LIMIT 10
-  `;
-
-  // Busca os últimos 10 atendimentos
+  sql += ` ORDER BY hora_registro DESC LIMIT 10`;
   [rows] = await pool.query(sql, params);
 
-  // 2. Se não encontrou, tenta a busca "fuzzy" com Distância de Levenshtein
+
+  // 2. Se não encontrou, tenta a busca "fuzzy" partindo do primeiro nome
   if (rows.length === 0) {
-    logger.debug('Nenhum resultado de busca exata. Tentando busca fuzzy...');
+    logger.debug('Nenhum resultado de busca exata. Tentando busca fuzzy pelo primeiro nome...');
+    const firstWord = paciente.split(' ')[0];
     const fuzzySql = `
       SELECT msgId, paciente, empresa FROM atendimentos
       WHERE ASO_assinado IS NULL
@@ -388,22 +384,46 @@ async function signASO(pool, originalText) {
       ORDER BY hora_registro DESC
       LIMIT 100
     `;
-    const fuzzyParams = [`%${paciente.split(' ')[0]}%`]; // Busca pelo primeiro nome como ponto de partida
+    const fuzzyParams = [`%${firstWord}%`];
 
     const [fuzzyRows] = await pool.query(fuzzySql, fuzzyParams);
     
-    // Filtra os resultados com base na Distância de Levenshtein
-    const maxLevenshteinDistance = 2; // Tolerância para erros de digitação (ajuste se necessário)
+    const maxLevenshteinDistance = 2;
     rows = fuzzyRows.filter(row => {
       const dbPacienteNormalizado = normalizeText(row.paciente);
       const distance = calculateLevenshteinDistance(paciente, dbPacienteNormalizado);
       return distance <= maxLevenshteinDistance;
     });
-
   }
 
+  // 3. Se ainda não encontrou, tenta a busca "fuzzy" partindo do último nome
   if (rows.length === 0) {
-    logger.debug('⏭️ Nenhum registro encontrado para ser assinado.');
+    logger.debug('Nenhum resultado de busca por primeiro nome. Tentando busca fuzzy pelo último nome...');
+    const pacienteWords = paciente.split(' ');
+    const lastWord = pacienteWords[pacienteWords.length - 1];
+    
+    const fuzzySql = `
+      SELECT msgId, paciente, empresa FROM atendimentos
+      WHERE ASO_assinado IS NULL
+        AND LOWER(paciente) LIKE ?
+      ORDER BY hora_registro DESC
+      LIMIT 100
+    `;
+    const fuzzyParams = [`%${lastWord}%`];
+ 
+    const [fuzzyRows] = await pool.query(fuzzySql, fuzzyParams);
+    
+    const maxLevenshteinDistance = 2;
+    rows = fuzzyRows.filter(row => {
+      const dbPacienteNormalizado = normalizeText(row.paciente);
+      const distance = calculateLevenshteinDistance(paciente, dbPacienteNormalizado);
+      return distance <= maxLevenshteinDistance;
+    });
+  }
+
+
+  if (rows.length === 0) {
+    logger.debug('⏭️ Nenhum registro encontrado para ser assinado após todas as tentativas.');
     return;
   }
 
