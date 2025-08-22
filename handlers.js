@@ -353,6 +353,8 @@ async function signASO(pool, originalText) {
 
   logger.info(`🛠️ Marcando ASO para paciente: ${paciente}, termos da empresa: ${empresaTerms.join(', ')}`);
 
+  let rows = [];
+  
   // Constrói a consulta dinamicamente para lidar com a busca parcial da empresa
   let sql = `
     SELECT msgId FROM atendimentos
