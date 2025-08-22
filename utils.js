@@ -37,4 +37,36 @@ function normalizeText(text) {
   return t.trim();
 }
 
-module.exports = { getBranchByChatId, getTopicsByBranch, normalizeText, normalizeAccents };
+/**
+ * Calcula a Distância de Levenshtein entre duas strings.
+ * Fonte: https://en.wikipedia.org/wiki/Levenshtein_distance
+ */
+function calculateLevenshteinDistance(a, b) {
+  const an = a.length;
+  const bn = b.length;
+  if (an === 0) return bn;
+  if (bn === 0) return an;
+
+  const matrix = [];
+
+  for (let i = 0; i <= an; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 1; j <= bn; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= an; i++) {
+    for (let j = 1; j <= bn; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1, // Exclusão
+        matrix[i][j - 1] + 1, // Inserção
+        matrix[i - 1][j - 1] + cost // Substituição
+      );
+    }
+  }
+  return matrix[an][bn];
+}
+
+module.exports = { getBranchByChatId, getTopicsByBranch, normalizeText, normalizeAccents, calculateLevenshteinDistance };

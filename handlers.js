@@ -1,7 +1,7 @@
 // handlers.js
 
 const { logMessage } = require('./logUtils');
-const { getTopicsByBranch, getBranchByChatId, normalizeText, normalizeAccents } = require('./utils');
+const { getTopicsByBranch, getBranchByChatId, normalizeText, normalizeAccents, calculateLevenshteinDistance } = require('./utils');
 const { getPool } = require('./database');
 const { getMQTT } = require('./mqttClient');
 const logger = require('./logger');
@@ -374,7 +374,31 @@ async function signASO(pool, originalText) {
   `;
 
   // Busca os últimos 10 atendimentos
-  const [rows] = await pool.query(sql, params);
+  [rows] = await pool.query(sql, params);
+
+  // 2. Se não encontrou, tenta a busca "fuzzy" com Distância de Levenshtein
+  if (rows.length === 0) {
+    logger.debug('Nenhum resultado de busca exata. Tentando busca fuzzy...');
+    const fuzzySql = `
+      SELECT msgId, paciente, empresa FROM atendimentos
+      WHERE ASO_assinado IS NULL
+        AND LOWER(paciente) LIKE ?
+      ORDER BY hora_registro DESC
+      LIMIT 100
+    `;
+    const fuzzyParams = [`%${paciente.split(' ')[0]}%`]; // Busca pelo primeiro nome como ponto de partida
+
+    const [fuzzyRows] = await pool.query(fuzzySql, fuzzyParams);
+    
+    // Filtra os resultados com base na Distância de Levenshtein
+    const maxLevenshteinDistance = 2; // Tolerância para erros de digitação (ajuste se necessário)
+    rows = fuzzyRows.filter(row => {
+      const dbPacienteNormalizado = normalizeText(row.paciente);
+      const distance = calculateLevenshteinDistance(paciente, dbPacienteNormalizado);
+      return distance <= maxLevenshteinDistance;
+    });
+
+  }
 
   if (rows.length === 0) {
     logger.debug('⏭️ Nenhum registro encontrado para ser assinado.');
