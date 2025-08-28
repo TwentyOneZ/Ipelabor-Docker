@@ -52,11 +52,15 @@ async function connectWhatsApp() {
         const shouldReconnect =
           lastDisconnect?.error instanceof Boom &&
           lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut;
+        
         if (shouldReconnect) {
           logger.info('🔄 Reconectando em 10s...');
           setTimeout(connectWhatsApp, 10000);
+        } else if (lastDisconnect?.error.output.statusCode === DisconnectReason.loggedOut) {
+          logger.info('⚠️ Sessão expirada. Escaneie novamente o QR Code. Reconectando em 10s...');
+          setTimeout(connectWhatsApp, 10000);
         } else {
-          logger.info('⚠️ Sessão expirada. Escaneie novamente o QR Code.');
+            logger.info('⚠️ Sessão expirada. Escaneie novamente o QR Code.');
         }
       }
     }
