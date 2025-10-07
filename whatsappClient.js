@@ -10,14 +10,25 @@ const { Boom } = require('@hapi/boom')
 const qrcode = require('qrcode-terminal')
 const appLogger = require('./logger')              // seu logger de app
 const P = require('pino')
-const NodeCache = require('node-cache')
 const { handleIncomingMessages } = require('./handlers')
+
+class SimpleCache {
+  constructor() { this.store = new Map() }
+  get(key) { return this.store.get(key) }
+  set(key, val, ttlSeconds) {
+    this.store.set(key, val)
+    if (ttlSeconds) {
+      setTimeout(() => this.store.delete(key), ttlSeconds * 1000).unref?.()
+    }
+  }
+  del(key) { this.store.delete(key) }
+}
 
 let sock = null
 
 // logger específico para o Baileys (pino)
 const baileysLogger = P({ level: 'info' }) // mantenha "info" enquanto debuga chaves
-const msgRetryCounterCache = new NodeCache()
+const msgRetryCounterCache = new SimpleCache()
 
 /**
  * Inicia a conexão com o WhatsApp e armazena a instância em `sock`
