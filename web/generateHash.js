@@ -1,5 +1,5 @@
 // generateHash.js
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const plaintextPassword = '01234567'; // Senha padrão
 const saltRounds = 10;
