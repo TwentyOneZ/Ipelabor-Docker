@@ -97,7 +97,7 @@ async function registerAttendanceOnReceive(pool, msgId, chatId, branch, text) {
   const sala = config.rooms?.[chatId] || '';
 
   await pool.query(
-    `INSERT INTO atendimentos
+    `INSERT IGNORE INTO atendimentos
       (msgId, paciente, empresa, sala, branch, \`data\`, hora_registro)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [ msgId, paciente, empresa, sala, branch, date, time ]
@@ -454,7 +454,7 @@ async function handleIncomingMessages(upsert, sock) {
     logger.error('❌ sock é undefined!');
     return;
   }
-  if (upsert.type !== 'notify') return;
+  if (!['notify', 'append'].includes(upsert.type)) return;
 
   const mqttClient = getMQTT();
   const pool       = getPool();
