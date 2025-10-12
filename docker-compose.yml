@@ -80,7 +80,7 @@ services:
       TZ: America/Sao_Paulo
       JAVA_OPTS: "-Xmx1g" 
       MB_DB_TYPE: mysql
-      MB_DB_DBNAME: metabase_db
+      MB_DB_DBNAME: metabase
       MB_DB_PORT: 3306
       MB_DB_USER: root
       MB_DB_PASS: q1w2e3
