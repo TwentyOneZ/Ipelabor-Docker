@@ -66,6 +66,26 @@ services:
     command: node server.js
     restart: unless-stopped
 
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase_app
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    ports:
+      - "7001:3000"
+    environment:
+      TZ: America/Sao_Paulo
+      MB_DB_TYPE: mysql
+      MB_DB_DBNAME: ipelabor
+      MB_DB_PORT: 3306
+      MB_DB_USER: root
+      MB_DB_PASS: q1w2e3
+      MB_DB_HOST: mysql
+    volumes:
+      - metabase_data:/metabase-data
+
 volumes:
   mysql_data:
   baileys_auth:
+  metabase_data:
