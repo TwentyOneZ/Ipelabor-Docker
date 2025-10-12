@@ -1,26 +1,35 @@
+version: '3.8'
+
 services:
   mysql:
     image: mysql:8
     container_name: mysql_whatsapp
     restart: unless-stopped
+    healthcheck:
+      # Comando que o Docker rodará para verificar a saúde do MySQL
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s # Verifica a cada 10 segundos
+      timeout: 5s   # Tempo máximo para a verificação
+      retries: 5    # Tenta 5 vezes antes de marcar como "unhealthy"
     environment:
       MYSQL_ROOT_PASSWORD: q1w2e3
       MYSQL_DATABASE: ipelabor
       MYSQL_TCP_PORT: 3306
-      MYSQL_ROOT_HOST: '%'           # <— permite root de qualquer host
-      TZ: America/Sao_Paulo       # <-- define o fuso
+      MYSQL_ROOT_HOST: '%'
+      TZ: America/Sao_Paulo
     ports:
       - "7306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  # ... (mqtt_broker, nodeapp, web permanecem os mesmos) ...
   mqtt_broker:
     image: eclipse-mosquitto
     container_name: mqtt_whatsapp
     restart: unless-stopped
     environment:
-      TZ: America/Sao_Paulo       # <-- define o fuso
+      TZ: America/Sao_Paulo
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
@@ -32,12 +41,13 @@ services:
     build: .
     container_name: whatsapp_app
     depends_on:
-      - mysql
-      - mqtt_broker
+      mysql:
+        condition: service_healthy # Aguarda o healthcheck do MySQL
+      mqtt_broker:
+        condition: service_started
     environment:
-      TZ: America/Sao_Paulo       # <-- define o fuso
+      TZ: America/Sao_Paulo
     volumes:
-    #  - .:/app
       - ./config.ini:/app/config.ini
       - baileys_auth:/app/baileys_auth_info
     working_dir: /app
@@ -49,37 +59,34 @@ services:
       context: .
       dockerfile: ./web/Dockerfile
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy # Aguarda o healthcheck do MySQL
     ports:
       - "7000:3000"
     environment:
-      TZ: America/Sao_Paulo       # <-- define o fuso
-    # volumes:
-      # # Mapeia apenas os arquivos necessários, evitando sobrescrever o node_modules
-      # - ./web:/app/web # Mapeia o diretório web
-      # - ./config.ini:/app/config.ini # Mapeia o config.ini
-      # # Adiciona um volume anônimo para persistir o node_modules
-      # - /app/web/node_modules
+      TZ: America/Sao_Paulo
     working_dir: /app/web
     command: node server.js
     restart: unless-stopped
-
+    
   metabase:
     image: metabase/metabase:latest
     container_name: metabase_app
     restart: unless-stopped
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     ports:
       - "7001:3000"
     environment:
       TZ: America/Sao_Paulo
       MB_DB_TYPE: mysql
-      MB_DB_DBNAME: metabase
+      MB_DB_DBNAME: metabase_db
       MB_DB_PORT: 3306
       MB_DB_USER: root
       MB_DB_PASS: q1w2e3
       MB_DB_HOST: mysql
+      MB_DB_CONNECTION_TIMEOUT: 60000 # Aumenta o timeout para 60 segundos
     volumes:
       - metabase_data:/metabase-data
 
