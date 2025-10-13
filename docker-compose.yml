@@ -3,10 +3,13 @@ services:
     image: mysql:8
     container_name: mysql_whatsapp
     restart: unless-stopped
-    cpu_shares: 2048      # Prioridade de CPU alta
-    blkio_weight: 700      # Prioridade de I/O de disco alta
+    cpu_shares: 2048
+    # MODIFICADO: 'blkio_weight' foi substituído pela estrutura 'blkio_config'
+    blkio_config:
+      weight: 700
     healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      # MODIFICADO: A senha foi colocada diretamente, sem usar variável de ambiente do host
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-pq1w2e3"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +29,7 @@ services:
     image: eclipse-mosquitto
     container_name: mqtt_whatsapp
     restart: unless-stopped
-    cpu_shares: 2048      # Prioridade de CPU alta
+    cpu_shares: 2048
     environment:
       TZ: America/Sao_Paulo
     volumes:
@@ -40,7 +43,7 @@ services:
     build: .
     container_name: whatsapp_app
     restart: unless-stopped
-    cpu_shares: 2048      # Prioridade de CPU alta
+    cpu_shares: 2048
     depends_on:
       mysql:
         condition: service_healthy
@@ -59,7 +62,7 @@ services:
       context: .
       dockerfile: ./web/Dockerfile
     restart: unless-stopped
-    cpu_shares: 512       # Prioridade de CPU baixa (metade do padrão)
+    cpu_shares: 512
     depends_on:
       mysql:
         condition: service_healthy
@@ -74,8 +77,10 @@ services:
     image: metabase/metabase:latest
     container_name: metabase_app
     restart: unless-stopped
-    cpu_shares: 512       # Prioridade de CPU baixa
-    blkio_weight: 300      # Prioridade de I/O de disco baixa
+    cpu_shares: 512
+    # MODIFICADO: 'blkio_weight' foi substituído pela estrutura 'blkio_config'
+    blkio_config:
+      weight: 300
     depends_on:
       mysql:
         condition: service_healthy
