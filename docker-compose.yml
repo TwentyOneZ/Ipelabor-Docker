@@ -13,6 +13,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: ["--default-authentication-plugin=caching_sha2_password"]
     environment:
       MYSQL_ROOT_PASSWORD: q1w2e3
       MYSQL_DATABASE: ipelabor
@@ -89,7 +90,7 @@ services:
     environment:
       TZ: America/Sao_Paulo
       JAVA_OPTS: "-Xmx1g" 
-      MB_DB_ADDITIONAL_OPTIONS: allowPublicKeyRetrieval=true
+      MB_DB_CONNECTION_URI: "mysql://metabase:q1w2e3@mysql:3306/metabase?useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo"
       MB_DB_TYPE: mysql
       MB_DB_DBNAME: metabase
       MB_DB_PORT: 3306
