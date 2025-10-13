@@ -3,12 +3,13 @@ services:
     image: mysql:8
     container_name: mysql_whatsapp
     restart: unless-stopped
+    cpu_shares: 2048      # Prioridade de CPU alta
+    blkio_weight: 700      # Prioridade de I/O de disco alta
     healthcheck:
-      # Comando que o Docker rodará para verificar a saúde do MySQL
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 10s # Verifica a cada 10 segundos
-      timeout: 5s   # Tempo máximo para a verificação
-      retries: 5    # Tenta 5 vezes antes de marcar como "unhealthy"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     environment:
       MYSQL_ROOT_PASSWORD: q1w2e3
       MYSQL_DATABASE: ipelabor
@@ -21,11 +22,11 @@ services:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  # ... (mqtt_broker, nodeapp, web permanecem os mesmos) ...
   mqtt_broker:
     image: eclipse-mosquitto
     container_name: mqtt_whatsapp
     restart: unless-stopped
+    cpu_shares: 2048      # Prioridade de CPU alta
     environment:
       TZ: America/Sao_Paulo
     volumes:
@@ -38,9 +39,11 @@ services:
   nodeapp:
     build: .
     container_name: whatsapp_app
+    restart: unless-stopped
+    cpu_shares: 2048      # Prioridade de CPU alta
     depends_on:
       mysql:
-        condition: service_healthy # Aguarda o healthcheck do MySQL
+        condition: service_healthy
       mqtt_broker:
         condition: service_started
     environment:
@@ -50,27 +53,29 @@ services:
       - baileys_auth:/app/baileys_auth_info
     working_dir: /app
     command: ["node", "index.js"]
-    restart: unless-stopped
 
   web:
     build:
       context: .
       dockerfile: ./web/Dockerfile
+    restart: unless-stopped
+    cpu_shares: 512       # Prioridade de CPU baixa (metade do padrão)
     depends_on:
       mysql:
-        condition: service_healthy # Aguarda o healthcheck do MySQL
+        condition: service_healthy
     ports:
       - "7000:3000"
     environment:
       TZ: America/Sao_Paulo
     working_dir: /app/web
     command: node server.js
-    restart: unless-stopped
     
   metabase:
     image: metabase/metabase:latest
     container_name: metabase_app
     restart: unless-stopped
+    cpu_shares: 512       # Prioridade de CPU baixa
+    blkio_weight: 300      # Prioridade de I/O de disco baixa
     depends_on:
       mysql:
         condition: service_healthy
@@ -85,7 +90,7 @@ services:
       MB_DB_USER: root
       MB_DB_PASS: q1w2e3
       MB_DB_HOST: mysql
-      MB_DB_CONNECTION_TIMEOUT: 60000 # Aumenta o timeout para 60 segundos
+      MB_DB_CONNECTION_TIMEOUT: 60000
     volumes:
       - metabase_data:/metabase-data
 
