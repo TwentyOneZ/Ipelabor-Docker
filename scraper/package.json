@@ -1,0 +1,17 @@
+{
+  "name": "ipelabor-scraper",
+  "version": "1.0.0",
+  "description": "Scraper para dados de atendimento externos (Sistema ESO)",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js"
+  },
+  "dependencies": {
+    "puppeteer": "^22.0.0", 
+    "mysql2": "^3.5.2",
+    "mqtt": "^5.10.4",
+    "ini": "^4.1.1",
+    "pino": "^8.21.0",
+    "pino-pretty": "^13.0.0"
+  }
+}
