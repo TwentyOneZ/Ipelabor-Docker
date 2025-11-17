@@ -252,10 +252,12 @@ async function runScraperOnce() {
         '--disable-dev-shm-usage',
       ],
       // evita timeout curto de launch
-      protocolTimeout: 0
+      protocolTimeout: 120000
     });
 
     const page = await browser.newPage();
+    page.setDefaultTimeout(120000);
+    page.setDefaultNavigationTimeout(120000);
     await page.goto(url, { waitUntil: "networkidle2" });
 
     logger.info(`🌐 Página do painel carregada: ${url}`);
