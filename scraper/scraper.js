@@ -265,7 +265,7 @@ async function runScraperOnce() {
     const pool = getPool();
     let nomesAtuais = [];
 
-    logger.info('🤖 Scraper iniciado. Checando a cada 100ms...');
+    logger.info('🤖 Scraper iniciado. Checando a cada 1000ms...');
 
     while (true) {
 
@@ -316,7 +316,7 @@ async function runScraperOnce() {
       nomesAtuais = dados;
 
       // Intervalo entre checks
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 1000));
     }
   } catch (e) {
     // NÃO derruba o processo aqui — só deixa subir pra quem chamou
