@@ -9,10 +9,15 @@ const config = require('./config');
 const { connectMQTT, getMQTT } = require('../mqttClient');
 const { getTopicsByBranch } = require('../utils');
 
+const url =
+  (config.scraper && config.scraper.url)
+    ? config.scraper.url
+    : null;
 
-
-// URL fornecida no seu arquivo
-const url = "https://core.sistemaeso.com.br/saladechegada/69e380?w[0]=57f46ad9&w[1]=08ea32b9&w[2]=1503f023&w[3]=24182222&w[4]=33468ea1&w[5]=4519fa97&w[6]=144e2b99";
+if (!url) {
+  logger.error("❌ URL do scraper não definida no config.ini (seção [scraper]).");
+  process.exit(1);
+}
 
 function normalizeName(name) {
   if (!name) return '';
@@ -41,6 +46,49 @@ function generateMsgId(paciente, salaNome, branch, date) {
   return `SCRAPER_${date}_${branchSlug}_${nameSlug}_${roomSlug}`;
 }
 
+// Converte texto "Matriz - Audiometria" em:
+// { sala: "Audiometria", branch: "matriz" }
+function parseSalaAndBranch(rawSala) {
+  const fallbackBranch = (config.branch_names && config.branch_names.scraper) || 'scraper';
+
+  if (!rawSala) {
+    return { sala: '', branch: fallbackBranch };
+  }
+
+  // Divide pelas ocorrências de "-"
+  const parts = rawSala.split('-').map(p => p.trim()).filter(Boolean);
+  if (parts.length < 2) {
+    // Não tem branch explícito, devolve sala inteira + branch padrão
+    return { sala: rawSala.trim(), branch: fallbackBranch };
+  }
+
+  // NOVO FORMATO: "Branch - Sala"
+  const branchLabel = parts[0];                    // "Matriz", "T63", etc.
+  const salaName    = parts.slice(1).join(' - ').trim(); // "Audiometria", "Sala de Coleta", etc.
+
+  const labelNorm = normalizeName(branchLabel);    // "MATRIZ", "T63"...
+
+  let branch = null;
+
+  // Mapeia o texto para uma chave/valor de [branch_names] no config.ini
+  if (config.branch_names) {
+    for (const [key, value] of Object.entries(config.branch_names)) {
+      const keyNorm = normalizeName(key);
+      const valNorm = normalizeName(String(value || ''));
+      if (labelNorm === keyNorm || labelNorm === valNorm) {
+        branch = value || key; // ex: "matriz" ou "t63"
+        break;
+      }
+    }
+  }
+
+  if (!branch) {
+    branch = fallbackBranch;
+  }
+
+  return { sala: salaName, branch };
+}
+
 
 // Conjunto em memória para evitar duplicatas durante a vida do processo
 const seenCalls = new Set();
@@ -49,9 +97,12 @@ const seenCalls = new Set();
  */
 function publishScrapedCall(scrapedData, msgId) {
   try {
-    // Branch usada para buscar os tópicos MQTT. 
-    // Você pode configurar em [branch_names] do config.ini: scraperBranch = matriz (por exemplo)
-    const branchForMQTT = (config.branch_names && config.branch_names.scraper) || 'scraper';
+    // Branch usada para buscar os tópicos MQTT vem do próprio chamado
+    const branchForMQTT =
+      scrapedData.branch ||
+      (config.branch_names && config.branch_names.scraper) ||
+      'scraper';
+
     const topics = getTopicsByBranch(branchForMQTT);
 
     if (!topics || !topics.topicCalls) {
@@ -60,9 +111,9 @@ function publishScrapedCall(scrapedData, msgId) {
     }
 
     const name = scrapedData.nome;
-    const room = scrapedData.sala || '';
+    const room = scrapedData.sala || '';      // já estará sem o "- Matriz"
     const roomShort = scrapedData.sala || '';
-    const postCall = null; // para o painel, se precisar, você pode ajustar depois
+    const postCall = null;
 
     const payload = Buffer.from(JSON.stringify({
       name,
@@ -88,6 +139,7 @@ function publishScrapedCall(scrapedData, msgId) {
 }
 
 
+
 async function saveScrapedCall(pool, scrapedData) {
   const now = new Date();
   const YYYY = now.getFullYear();
@@ -97,10 +149,11 @@ async function saveScrapedCall(pool, scrapedData) {
   const time = now.toTimeString().slice(0, 8);
 
   const paciente  = (scrapedData.nome   || '').trim();
-  const salaNome  = (scrapedData.sala   || '').trim();
+  const salaNome  = (scrapedData.sala   || '').trim();      // já virá sem "- Matriz"
   const atendente = (scrapedData.medico || '').trim();
-
-  const branch = (config.branch_names && config.branch_names.scraper) || 'scraper';
+  const branch    = (scrapedData.branch || '').trim() ||
+                    (config.branch_names && config.branch_names.scraper) ||
+                    'scraper';
 
   // msgId determinístico para (Nome, Sala, Branch, Data)
   const msgId = generateMsgId(paciente, salaNome, branch, date);
@@ -211,21 +264,32 @@ async function runScraper() {
 
     while (true) {
         // Lógica de raspagem dos dados
-        const dados = await page.$$eval(".card", cards =>
+        const dadosRaw = await page.$$eval(".card", cards =>
           cards
             .map(c => ({
               nome:   c.querySelector(".personMain")?.innerText.trim()   || "",
               medico: c.querySelector(".providerMain")?.innerText.trim() || "",
-              sala:   c.querySelector(".hallMain")?.innerText.trim()     || ""
+              sala:   c.querySelector(".hallMain")?.innerText.trim()     || "" // ex: "Matriz - Audiometria"
             }))
             .filter(c => c.nome !== "")
         );
+        
+        // Aqui já estamos no Node, então aplicamos o parseSalaAndBranch
+        const dados = dadosRaw.map(c => {
+          const parsed = parseSalaAndBranch(c.sala);
+          return {
+            ...c,
+            sala: parsed.sala,      // "Audiometria"
+            branch: parsed.branch   // "matriz" ou "t63"
+          };
+        });
 
         // Detecta novos chamados (baseado no nome normalizado + sala, para evitar repetições mesmo se mudar caixa/acentos)
         const novos = dados.filter(c => {
           return !nomesAtuais.some(a =>
             normalizeName(a.nome) === normalizeName(c.nome) &&
-            a.sala === c.sala
+            a.sala === c.sala &&
+            a.branch === c.branch
           );
         });
 
