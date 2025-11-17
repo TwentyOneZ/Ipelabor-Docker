@@ -240,79 +240,93 @@ async function saveScrapedCall(pool, scrapedData) {
 
 
 
-async function runScraper() {
+async function runScraperOnce() {
   let browser;
   try {
     // Configuração para rodar o Puppeteer dentro do Docker
-    browser = await puppeteer.launch({ 
-        headless: 'new',
-        args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage', // Necessário no Docker
-        ] 
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+      ],
+      // evita timeout curto de launch
+      protocolTimeout: 0
     });
+
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2" });
 
-    await page.waitForSelector(".card");
+    logger.info(`🌐 Página do painel carregada: ${url}`);
 
+    const pool = getPool();
     let nomesAtuais = [];
-    logger.info('🤖 Scraper iniciado. Checando a cada 10s...');
-    
-    const pool = getPool(); 
+
+    logger.info('🤖 Scraper iniciado. Checando a cada 100ms...');
 
     while (true) {
-        // Lógica de raspagem dos dados
-        const dadosRaw = await page.$$eval(".card", cards =>
-          cards
-            .map(c => ({
-              nome:   c.querySelector(".personMain")?.innerText.trim()   || "",
-              medico: c.querySelector(".providerMain")?.innerText.trim() || "",
-              sala:   c.querySelector(".hallMain")?.innerText.trim()     || "" // ex: "Matriz - Audiometria"
-            }))
-            .filter(c => c.nome !== "")
+
+      try {
+        await page.waitForSelector(".card", { timeout: 10000 });
+      } catch (err) {
+        // Nenhum card encontrado — seguir rodando SEM recarregar a página
+        logger.debug('⏳ Nenhum card encontrado ainda. Mantendo a página aberta e aguardando...');
+        await new Promise(r => setTimeout(r, 500)); // espera 500ms e tenta de novo
+        continue; // volta ao while sem fazer nada
+      }
+
+      const dadosRaw = await page.$$eval(".card", cards =>
+        cards
+          .map(c => ({
+            nome:   c.querySelector(".personMain")?.innerText.trim()   || "",
+            medico: c.querySelector(".providerMain")?.innerText.trim() || "",
+            sala:   c.querySelector(".hallMain")?.innerText.trim()     || ""
+          }))
+          .filter(c => c.nome !== "")
+      );
+
+      const dados = dadosRaw.map(c => {
+        const parsed = parseSalaAndBranch(c.sala);
+        return {
+          ...c,
+          sala: parsed.sala,
+          branch: parsed.branch
+        };
+      });
+
+      // Detecta novos chamados considerando nome normalizado + sala + branch
+      const novos = dados.filter(c => {
+        return !nomesAtuais.some(a =>
+          normalizeName(a.nome) === normalizeName(c.nome) &&
+          a.sala === c.sala &&
+          a.branch === c.branch
         );
-        
-        // Aqui já estamos no Node, então aplicamos o parseSalaAndBranch
-        const dados = dadosRaw.map(c => {
-          const parsed = parseSalaAndBranch(c.sala);
-          return {
-            ...c,
-            sala: parsed.sala,      // "Audiometria"
-            branch: parsed.branch   // "matriz" ou "t63"
-          };
-        });
+      });
 
-        // Detecta novos chamados (baseado no nome normalizado + sala, para evitar repetições mesmo se mudar caixa/acentos)
-        const novos = dados.filter(c => {
-          return !nomesAtuais.some(a =>
-            normalizeName(a.nome) === normalizeName(c.nome) &&
-            a.sala === c.sala &&
-            a.branch === c.branch
-          );
-        });
-
-        if (novos.length > 0) {
-          logger.info(`🔔 ${novos.length} novos chamados detectados.`);
-
-          for (const novo of novos) {
-            await saveScrapedCall(pool, novo);
-          }
+      if (novos.length > 0) {
+        logger.info(`🔔 ${novos.length} novos chamados detectados.`);
+        for (const novo of novos) {
+          await saveScrapedCall(pool, novo);
         }
-        
-        // Atualiza o estado: nomes/salas que estão atualmente na tela
-        nomesAtuais = dados;
+      }
 
-        await new Promise(r => setTimeout(r, 100)); // checa a cada 100 milisegundos
+      nomesAtuais = dados;
+
+      // Intervalo entre checks
+      await new Promise(r => setTimeout(r, 100));
     }
   } catch (e) {
-    logger.error('❌ Erro fatal no scraper', e);
+    // NÃO derruba o processo aqui — só deixa subir pra quem chamou
+    logger.error('❌ Erro dentro do runScraperOnce:', e);
+    throw e;
   } finally {
     if (browser) {
-        // Não fechar o browser no loop infinito, mas garantir que feche em caso de erro.
-        // Já que o loop é infinito, este 'finally' só é executado em erro.
+      try {
         await browser.close();
+      } catch (e) {
+        logger.warn('⚠️ Erro ao fechar browser no finally:', e.message);
+      }
     }
   }
 }
@@ -320,22 +334,32 @@ async function runScraper() {
 // ---- bootstrap do scraper ----
 
 (async () => {
+  console.log('>>> [SCRAPER] Script iniciou dentro do container');
   try {
-      console.log('>>> [SCRAPER] Script iniciou dentro do container');
-      logger.info('⚙️ Iniciando serviço Scraper.'); 
-      
-      logger.info('⚙️ Tentando conectar ao MySQL...'); 
-      await connectMySQL();
-      logger.info('✅ Conexão MySQL estabelecida.');
+    logger.info('⚙️ Tentando conectar ao MySQL...');
+    await connectMySQL();
+    logger.info('✅ Conexão MySQL estabelecida.');
 
-      logger.info('⚙️ Conectando ao MQTT...');
-      await connectMQTT();
-      logger.info('✅ Conectado ao MQTT. Iniciando raspagem...');
+    logger.info('⚙️ Conectando ao MQTT...');
+    await connectMQTT();
+    logger.info('✅ Conectado ao broker MQTT.');
 
-      await runScraper();
+    // Loop de retry infinito: se o runScraperOnce der erro (launch, navegação, etc),
+    // esperamos alguns segundos e tentamos de novo.
+    while (true) {
+      try {
+        logger.info('🚀 Iniciando ciclo do scraper...');
+        await runScraperOnce();
+      } catch (err) {
+        logger.error('💥 Erro no ciclo do scraper. Vai reiniciar em 10 segundos...', err);
+        await new Promise(r => setTimeout(r, 10000));
+      }
+    }
   } catch (error) {
-      logger.error('❌ Falha na inicialização do scraper', error);
-      console.error(error);
-      process.exit(1);
+    logger.error('❌ Falha crítica na inicialização do scraper (MySQL/MQTT).', error);
+    console.error(error);
+    // Aqui sim faz sentido morrer, porque sem DB/MQTT não há o que fazer
+    process.exit(1);
   }
 })();
+
