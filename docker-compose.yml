@@ -4,11 +4,9 @@ services:
     container_name: mysql_whatsapp
     restart: unless-stopped
     cpu_shares: 2048
-    # MODIFICADO: 'blkio_weight' foi substituído pela estrutura 'blkio_config'
     blkio_config:
       weight: 700
     healthcheck:
-      # MODIFICADO: A senha foi colocada diretamente, sem usar variável de ambiente do host
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-pq1w2e3"]
       interval: 10s
       timeout: 5s
@@ -72,13 +70,12 @@ services:
       TZ: America/Sao_Paulo
     working_dir: /app/web
     command: node server.js
-    
+
   metabase:
     image: metabase/metabase:latest
     container_name: metabase_app
     restart: unless-stopped
     cpu_shares: 512
-    # MODIFICADO: 'blkio_weight' foi substituído pela estrutura 'blkio_config'
     blkio_config:
       weight: 300
     depends_on:
@@ -88,7 +85,7 @@ services:
       - "7001:3000"
     environment:
       TZ: America/Sao_Paulo
-      JAVA_OPTS: "-Xmx1g" 
+      JAVA_OPTS: "-Xmx1g"
       MB_DB_CONNECTION_URI: "mysql://metabase:q1w2e3@mysql:3306/metabase?useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo"
       MB_DB_TYPE: mysql
       MB_DB_DBNAME: metabase
@@ -99,6 +96,37 @@ services:
       MB_DB_CONNECTION_TIMEOUT: 60000
     volumes:
       - metabase_data:/metabase-data
+
+  scraper_matriz:
+    build:
+      context: .
+      dockerfile: ./scraper/Dockerfile
+    container_name: ipelabor_scraper_matriz
+    restart: unless-stopped
+    cpu_shares: 512
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      TZ: America/Sao_Paulo
+    volumes:
+      # Cada scraper monta seu próprio config.ini
+      - ./config_matriz.ini:/usr/src/app/config.ini:ro
+
+  scraper_t63:
+    build:
+      context: .
+      dockerfile: ./scraper/Dockerfile
+    container_name: ipelabor_scraper_t63
+    restart: unless-stopped
+    cpu_shares: 512
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./config_t63.ini:/usr/src/app/config.ini:ro
 
 volumes:
   mysql_data:
