@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8
-    container_name: mysql_whatsapp
+    container_name: mysql
     restart: unless-stopped
     cpu_shares: 2048
     blkio_config:
@@ -25,7 +25,7 @@ services:
 
   mqtt_broker:
     image: eclipse-mosquitto
-    container_name: mqtt_whatsapp
+    container_name: mqtt
     restart: unless-stopped
     cpu_shares: 2048
     environment:
@@ -39,7 +39,7 @@ services:
 
   nodeapp:
     build: .
-    container_name: whatsapp_app
+    container_name: whatsapp
     restart: unless-stopped
     cpu_shares: 2048
     depends_on:
@@ -59,6 +59,7 @@ services:
     build:
       context: .
       dockerfile: ./web/Dockerfile
+    container_name: web
     restart: unless-stopped
     cpu_shares: 512
     depends_on:
@@ -73,7 +74,7 @@ services:
 
   metabase:
     image: metabase/metabase:latest
-    container_name: metabase_app
+    container_name: metabase
     restart: unless-stopped
     cpu_shares: 512
     blkio_config:
@@ -101,12 +102,14 @@ services:
     build:
       context: .
       dockerfile: ./scraper/Dockerfile
-    container_name: ipelabor_scraper_matriz
+    container_name: scraper_matriz
     restart: unless-stopped
     cpu_shares: 512
     depends_on:
       mysql:
         condition: service_healthy
+      mqtt_broker:
+        condition: service_started
     environment:
       TZ: America/Sao_Paulo
     volumes:
@@ -117,12 +120,14 @@ services:
     build:
       context: .
       dockerfile: ./scraper/Dockerfile
-    container_name: ipelabor_scraper_t63
+    container_name: scraper_t63
     restart: unless-stopped
     cpu_shares: 512
     depends_on:
       mysql:
         condition: service_healthy
+      mqtt_broker:
+        condition: service_started
     environment:
       TZ: America/Sao_Paulo
     volumes:
