@@ -375,7 +375,7 @@ async function runScraperOnce() {
       nomesAtuais = dados;
 
       // Intervalo entre checks
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 3000));
     }
   } catch (e) {
     // NÃO derruba o processo aqui — só deixa subir pra quem chamou
