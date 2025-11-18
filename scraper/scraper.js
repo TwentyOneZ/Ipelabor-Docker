@@ -333,7 +333,7 @@ async function runScraperOnce() {
       } catch (err) {
         // Nenhum card encontrado — seguir rodando SEM recarregar a página
         // logger.debug('⏳ Nenhum card encontrado ainda. Mantendo a página aberta e aguardando...');
-        await new Promise(r => setTimeout(r, 30000)); // espera 500ms e tenta de novo
+        await new Promise(r => setTimeout(r, 3000)); // espera 500ms e tenta de novo
         continue; // volta ao while sem fazer nada
       }
 
