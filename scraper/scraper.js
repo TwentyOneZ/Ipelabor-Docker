@@ -28,6 +28,11 @@ function normalizeName(name) {
     .trim();
 }
 
+function isCallAgainSala(sala) {
+  const norm = normalizeName(sala);
+  return norm === 'CHAMAR NOVAMENTE';
+}
+
 function slugify(str) {
   return (str || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -46,8 +51,8 @@ function generateMsgId(paciente, salaNome, branch, date) {
   return `SCRAPER_${date}_${branchSlug}_${nameSlug}_${roomSlug}`;
 }
 
-// Converte texto "Matriz - Audiometria" em:
-// { sala: "Audiometria", branch: "matriz" }
+// Converte texto "Matriz - Audiometria" ou "T63 – Chamar novamente" em:
+// { sala: "Audiometria" / "Chamar novamente", branch: "matriz" / "t63" }
 function parseSalaAndBranch(rawSala) {
   const fallbackBranch = (config.branch_names && config.branch_names.scraper) || 'scraper';
 
@@ -55,18 +60,18 @@ function parseSalaAndBranch(rawSala) {
     return { sala: '', branch: fallbackBranch };
   }
 
-  // Divide pelas ocorrências de "-"
-  const parts = rawSala.split('-').map(p => p.trim()).filter(Boolean);
+  // Divide por "-" OU por "–" (travessão)
+  const parts = rawSala.split(/[-–]/).map(p => p.trim()).filter(Boolean);
   if (parts.length < 2) {
     // Não tem branch explícito, devolve sala inteira + branch padrão
     return { sala: rawSala.trim(), branch: fallbackBranch };
   }
 
-  // NOVO FORMATO: "Branch - Sala"
-  const branchLabel = parts[0];                    // "Matriz", "T63", etc.
-  const salaName    = parts.slice(1).join(' - ').trim(); // "Audiometria", "Sala de Coleta", etc.
+  // Novo formato: "Branch - Sala" / "Branch – Sala"
+  const branchLabel = parts[0];                          // "Matriz", "T63", etc.
+  const salaName    = parts.slice(1).join(' - ').trim(); // "Audiometria", "Chamar novamente", etc.
 
-  const labelNorm = normalizeName(branchLabel);    // "MATRIZ", "T63"...
+  const labelNorm = normalizeName(branchLabel);          // "MATRIZ", "T63", ...
 
   let branch = null;
 
@@ -88,6 +93,7 @@ function parseSalaAndBranch(rawSala) {
 
   return { sala: salaName, branch };
 }
+
 
 
 // Conjunto em memória para evitar duplicatas durante a vida do processo
@@ -149,11 +155,65 @@ async function saveScrapedCall(pool, scrapedData) {
   const time = now.toTimeString().slice(0, 8);
 
   const paciente  = (scrapedData.nome   || '').trim();
-  const salaNome  = (scrapedData.sala   || '').trim();      // já virá sem "- Matriz"
+  const salaNome  = (scrapedData.sala   || '').trim();      // já virá sem "Matriz -", apenas "Audiometria" ou "Chamar novamente"
   const atendente = (scrapedData.medico || '').trim();
   const branch    = (scrapedData.branch || '').trim() ||
                     (config.branch_names && config.branch_names.scraper) ||
                     'scraper';
+
+  // 🔁 CASO ESPECIAL: sala "Chamar novamente"
+  if (isCallAgainSala(salaNome)) {
+    try {
+      // Busca o ÚLTIMO atendimento desse branch no dia
+      const [rows] = await pool.query(
+        `SELECT msgId, paciente, sala, branch, \`data\`, hora_registro, caller
+           FROM atendimentos
+          WHERE \`data\` = ?
+            AND branch = ?
+          ORDER BY hora_registro DESC
+          LIMIT 1`,
+        [date, branch]
+      );
+
+      if (rows.length === 0) {
+        logger.warn(`⚠️ Sala "Chamar novamente" acionada, mas não há atendimento anterior para o branch "${branch}" na data ${date}. Nada a repetir.`);
+        return false;
+      }
+
+      const last = rows[0];
+
+      // Atualiza só a hora do último chamado (opcional, mas útil para relatórios)
+      await pool.query(
+        `UPDATE atendimentos
+            SET hora_registro = ?
+          WHERE msgId = ?`,
+        [time, last.msgId]
+      );
+
+      logger.info(
+        `🔁 Rechamada via sala "Chamar novamente": repetindo ${last.paciente} em ${last.sala} `
+        + `(branch: ${branch}, msgId: ${last.msgId})`
+      );
+
+      // Publica NOVAMENTE no MQTT o último chamado real daquela branch
+      publishScrapedCall(
+        {
+          nome:   last.paciente,
+          sala:   last.sala,
+          branch: branch,
+          medico: last.caller || atendente
+        },
+        last.msgId
+      );
+
+      return true;
+    } catch (error) {
+      logger.error(`❌ Erro ao executar rechamada via "Chamar novamente": ${error.message}`);
+      return false;
+    }
+  }
+
+  // 🔎 Fluxo normal (salas reais, não "Chamar novamente")
 
   // msgId determinístico para (Nome, Sala, Branch, Data)
   const msgId = generateMsgId(paciente, salaNome, branch, date);
@@ -195,7 +255,7 @@ async function saveScrapedCall(pool, scrapedData) {
 
       // Publica de novo no MQTT usando o MESMO msgId
       publishScrapedCall(
-        { ...scrapedData, nome: paciente, sala: salaNome, medico: atendente },
+        { ...scrapedData, nome: paciente, sala: salaNome, branch, medico: atendente },
         last.msgId
       );
 
@@ -226,7 +286,7 @@ async function saveScrapedCall(pool, scrapedData) {
 
     // Publica no MQTT com o NOVO msgId
     publishScrapedCall(
-      { ...scrapedData, nome: paciente, sala: salaNome, medico: atendente },
+      { ...scrapedData, nome: paciente, sala: salaNome, branch, medico: atendente },
       msgId
     );
 
@@ -237,7 +297,6 @@ async function saveScrapedCall(pool, scrapedData) {
     return false;
   }
 }
-
 
 
 async function runScraperOnce() {
