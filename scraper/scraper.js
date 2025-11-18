@@ -324,7 +324,7 @@ async function runScraperOnce() {
     const pool = getPool();
     let nomesAtuais = [];
 
-    logger.info('🤖 Scraper iniciado. Checando a cada 1000ms...');
+    logger.info('🤖 Scraper iniciado. Checando a cada 3000ms...');
 
     while (true) {
 
@@ -332,8 +332,8 @@ async function runScraperOnce() {
         await page.waitForSelector(".card", { timeout: 10000 });
       } catch (err) {
         // Nenhum card encontrado — seguir rodando SEM recarregar a página
-        logger.debug('⏳ Nenhum card encontrado ainda. Mantendo a página aberta e aguardando...');
-        await new Promise(r => setTimeout(r, 500)); // espera 500ms e tenta de novo
+        // logger.debug('⏳ Nenhum card encontrado ainda. Mantendo a página aberta e aguardando...');
+        await new Promise(r => setTimeout(r, 30000)); // espera 500ms e tenta de novo
         continue; // volta ao while sem fazer nada
       }
 
